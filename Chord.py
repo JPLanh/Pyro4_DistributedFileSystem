@@ -33,29 +33,38 @@ class start_server(threading.Thread):
     def run(self):
         print("Thread started")
         Pyro4.naming.startNSloop()
-            
+
+def prompt():            
+    print('{:#^50}'.format(""))           
+    print('{:^50}'.format("Distributed File System"))            
+    print('{:#^50}'.format(""))
+    getChoice = input("('help' for commands):")
+    choiceSplit = getChoice.split(" ")
+
+    if len(choiceSplit) == 1:
+        if choiceSplit
+    
 if __name__ == "__main__":
+    getIP = input("IP:")
+    getPort = int(input("Port:"))
     try:
         thread1 = start_server()
         thread1.start()
+        chord = Chord(getIP, getPort)
+        with Pyro4.Daemon(host=chord.ip, port = chord.port) as daemon:
+            chordURI = daemon.register(chord)
+            with Pyro4.locateNS() as ns:
+                m = hashlib.md5()
+                IPGet = chord.ip + ":" + str(chord.port)
+                m.update(IPGet.encode('utf-8'))            
+                directory = os.path.dirname(str(m.hexdigest())+"/repository")
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+                ns.register(str(m.hexdigest()), chordURI)
+                print("chord registered")
+        prompt()
     except:
         print("Unable to start thread")
-    getIP = input("IP:").strip()
-    getPort = int(input("Port:").strip())
-    chord = Chord(getIP, getPort)
-    with Pyro4.Daemon(host=chord.ip, port = chord.port) as daemon:
-        chordURI = daemon.register(chord)
-        with Pyro4.locateNS() as ns:
-            m = hashlib.md5()
-            IPGet = chord.ip + ":" + str(chord.port)
-            m.update(IPGet.encode('utf-8'))            
-            directory = os.path.dirname(str(m.hexdigest())+"/repository")
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            ns.register(str(m.hexdigest()), chordURI)
-            print("chord registered")            
-            #daemon.requestLoop()
-    print("What would you like to do?")
 
-    with Pyro4.locateNS() as ns:
-        print(ns.list())
+##    with Pyro4.locateNS() as ns:
+##        print(ns.list())
