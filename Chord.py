@@ -25,10 +25,13 @@ class Chord(object):
     def guid(self):
         return self._guid
 
-    def newFile(self, file):
+    def readMetaData(self):
         jread = open(self._guid + "/repository/metadata", 'r')
         jsonRead = json.load(jread)
-        metadata = jsonRead["metadata"]
+        return jsonRead["metadata"]
+        
+    def newFile(self, file):
+        metadata = self.readMetaData()
         print(metadata)
         
     def add(self, item):

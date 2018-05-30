@@ -18,7 +18,8 @@ class start_server(threading.Thread):
 def createMeta(path):
   print("File was not found")
   metaData = {}
-  metaData["metadata"] = None
+  fileList = []
+  metaData["metadata"] = fileList  
   f = open(path+"/metadata", 'w')
   json.dump(metaData, f)
   f.close()
@@ -42,12 +43,16 @@ def prompt(chord):
 #        elif choiceSplit[0].lower() == "ls":
     elif len(choiceSplit) == 2:
       if choiceSplit[0].lower() == "up":
-        chord.newFile("Test")
+        chord.newFile("test")
+        #f = open(choiceSplit[1], 'rb')
+        #data = f.read()
         
         
 if __name__ == "__main__":
-    getIP = input("IP:")
-    getPort = int(input("Port:"))
+#    getIP = input("IP:")
+#    getPort = int(input("Port:"))
+    getIP = 'localhost'
+    getPort = 23245
     #try:
     thread1 = start_server()
     thread1.start()
