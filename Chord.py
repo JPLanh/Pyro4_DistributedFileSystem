@@ -29,10 +29,31 @@ class Chord(object):
         jread = open(self._guid + "/repository/metadata", 'r')
         jsonRead = json.load(jread)
         return jsonRead["metadata"]
-        
+
+    def writeMetaData(self, rawData):
+        f = open(self._guid + "/repository/metadata", 'w')
+        metadata = {}
+        metadata['metadata'] = rawData
+        json.dump(metadata, f)
+        f.close()
+
+    def joinRing(self, guid):
+        with Pyro4.locateNS() as ns:
+            for guidGet, guidURI in ns.list(prefix=guid).items():
+                print(Pyro4.Proxy(guidURI))
+                
+                
     def newFile(self, file):
         metadata = self.readMetaData()
-        print(metadata)
+        fileInfo = {}
+        fileInfo['File Name'] = file
+        fileInfo['Total Pages'] = 0
+        fileInfo['Page Size'] = 0
+        fileInfo['File Size'] = 0
+        pages = []
+        fileInfo['Pages'] = pages
+        metadata.append(fileInfo)
+        self.writeMetaData(metadata)
         
     def add(self, item):
         self.list.append(item)
