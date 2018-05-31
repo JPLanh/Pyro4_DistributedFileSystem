@@ -13,3 +13,7 @@ execute pyro4-ns
 ## To list the services
 Run cmd
 execute pyro4-nsc list
+
+## To unregister a chord
+Run cmd
+execute pyro4-nsc remove (guid)
