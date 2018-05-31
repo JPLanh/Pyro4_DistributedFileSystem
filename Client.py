@@ -41,18 +41,21 @@ def prompt(chord):
             print('Download \t down \t  {filename} \t Download the specifed filename')
             print('Exit \t\t exit \t \t\t Exit from the system')
 #        elif choiceSplit[0].lower() == "ls":
-    elif len(choiceSplit) == 2:
-      if choiceSplit[0].lower() == "up":
-        chord.newFile("test")
-        #f = open(choiceSplit[1], 'rb')
-        #data = f.read()
-        
-        
+    elif len(choiceSplit) > 1:
+        if choiceSplit[0].lower() == "up":
+            fileName = getChoice[3:]
+            chord.newFile(fileName)
+        elif choiceSplit[0].lower() == "join":
+            m = hashlib.md5()
+            IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
+            m.update(IPGet.encode('utf-8'))  
+            chord.joinRing(m.hexdigest())
+    
 if __name__ == "__main__":
-#    getIP = input("IP:")
-#    getPort = int(input("Port:"))
-    getIP = 'localhost'
-    getPort = 23245
+    getIP = input("IP:")
+    getPort = int(input("Port:"))
+#    getIP = 'localhost'
+#    getPort = 23245
     #try:
     thread1 = start_server()
     thread1.start()
@@ -74,6 +77,7 @@ if __name__ == "__main__":
             print("Welcome User!")
     while True:
         prompt(chord)
+
     #except:
     #    print("Unable to start thread")
 
