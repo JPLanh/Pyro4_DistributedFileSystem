@@ -13,12 +13,14 @@ class Chord(object):
         self._ip = ip
         self._port = port
         self._guid = guid
-        self.successor = self
+        self._successor = self
         self._predecessor = None
         self.finger = []
         self.nextFinger = 0
         for i in range(0, self.M):
             self.finger.append(None)
+        print("Loging in as %s:%s" %(ip, port))
+        print("Guid: %s" %(guid))
         thread1 = looping(self)
         thread1.start()
 
@@ -39,25 +41,38 @@ class Chord(object):
         return self._chord
 
     @property
+    def successor(self):
+        return self._successor
+
+    @property
     def predecessor(self):
         return self._predecessor
 
     def stabilize(self):
-        if self.successor != None:
-            x = self.successor.predecessor
-            if x != None and x.guid != self._guid and self.inCloseInterval(x.guid, self._guid, self.successor.guid):
-                self.successor = x
-           # if self.successor.guid != self._guid:
-            self.successor.notify(self)
-
+        try:
+            if self._successor != None:
+                x = self._successor.predecessor
+                if x != None and x.guid != self._guid and self.inInterval("Open", x.guid, self._guid, self._successor.guid):
+                    self._successor = x
+               # if self._successor.guid != self._guid:
+                self._successor.notify(self)
+        except:
+            print("error in stabilize")
+            
     def notify(self, chord):
-        if self._predecessor == None or (self._predecessor != None and self.inCloseInterval(chord.guid, self._predecessor.guid, self._guid)):
-            self._predecessor = chord
-
+        try:            
+            if self._predecessor == None or (self._predecessor != None and self.inInterval("Open", chord.guid, self._predecessor.guid, self._guid)):
+                self._predecessor = chord
+        except:
+            print("error in notify")
+            
     def fixFinger(self):
-        nextGuid = self._guid + 1 << (self.nextFinger+1)
-        self.finger[self.nextFinger] = self.locateSuccessor(nextGuid)
-        self.nextFinger = (self.nextFinger + 1)%self.M
+        try:
+            nextGuid = self._guid + 1 << (self.nextFinger+1)
+            self.nextFinger = (self.nextFinger + 1)%self.M
+            self.finger[self.nextFinger] = self.locateSuccessor(nextGuid)
+        except:
+            print("error in finger")
     
     def isAlive(self):
         return True
@@ -66,59 +81,66 @@ class Chord(object):
         if self._predecessor != None and not self._predecessor.isAlive():
             self._predecessor = None
 
-    def inCloseInterval(self, guid, begin, end):
+    def inInterval(self, intType, guid, begin, end):
         if begin < end:
-            return guid > begin and guid < end
+            if intType == "Open":
+                return guid > begin and guid < end
+            elif intType == "Close":
+                return guid > begin and guid <= end                
         else:
-            return guid > begin or guid < end
-
-    def locateSuccessor(self, guid):
-        if guid == self._guid:
-            print("Error it's the same shit")
-        else:
-            if self.successor.guid != guid:
-                if self.inCloseInterval(guid, self._guid, self.successor.guid):
-                    return self.successor
-                nextSuccessor = self.closestPrecedingChord(guid)
-                if nextSuccessor == None:
-                    return None
-                return nextSuccessor.locateSuccessor(guid)
+            if intType == "Open":
+                return guid > begin or guid < end
+            if intType == "Close":
+                return guid > begin or guid <= end
 
     def printFinger(self):
         for i in self.finger:
-            print(i)
+            print(i.guid)
 
     def closestPrecedingChord(self, guid):
         if guid != self._guid:
             i = self.M - 1;
             while i >= 0:
-                if self.inCloseInterval(self.finger[i].guid, self._guid, guid):
+                if self.inInterval("Close", self.finger[i].guid, self._guid, guid):
                     if self.finger[i].guid != guid:
                         return self.finger[i]
-            return self.successor
+            return self._successor
 
     def simplePrint(self):
         if self.predecessor != None:
-            print("S: %s C: %s P: %s" %(self.successor.guid, self.guid, self._predecessor.guid))
+            print("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor.guid))
         else:
-            print("S: %s C: %s P: %s" %(self.successor.guid, self.guid, self._predecessor))
+            print("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor))
             
-
+    def locateSuccessor(self, guid):
+        if guid == self._guid:
+            print("Error it's the same shit")
+        else:
+            if self._successor.guid != guid:
+                if self.inInterval("Close", guid, self._guid, self._successor.guid):
+                    return self._successor
+                else:
+                    nextSuccessor = self.closestPrecedingChord(guid)
+                    if nextSuccessor == None:
+                        return None
+                    return nextSuccessor.locateSuccessor(guid)
+                
     def joinRing(self, guid):
         with Pyro4.locateNS() as ns:
             for guidGet, guidURI in ns.list(prefix=str(guid)).items():
                 chordGet = Pyro4.Proxy(guidURI)
                 self._predecessor = None
-                self.successor = chordGet.locateSuccessor(self._guid)
+                print("%s, %s, %s" %(self._guid, chordGet.guid, chordGet.successor.guid))
+                self._successor = chordGet.locateSuccessor(self._guid)
                 print("Joining Ring")                 
 
     def readMetaData(self):
-        jread = open(self._guid + "/repository/metadata", 'r')
+        jread = open(str(self._guid) + "/repository/metadata", 'r')
         jsonRead = json.load(jread)
         return jsonRead["metadata"]
 
     def writeMetaData(self, rawData):
-        f = open(self._guid + "/repository/metadata", 'w')
+        f = open(str(self._guid) + "/repository/metadata", 'w')
         metadata = {}
         metadata['metadata'] = rawData
         json.dump(metadata, f)
@@ -127,7 +149,7 @@ class Chord(object):
     def ringAround(self, initial, count):
         if self.guid != initial.guid:
             print("%i : %s" %(count, initial.guid))
-            self.successor.ringAround(initial, count+1)
+            self._successor.ringAround(initial, count+1)
         else:
             print("%i : %s" %(count, initial.guid))            
         
@@ -142,6 +164,46 @@ class Chord(object):
         fileInfo['Pages'] = pages
         metadata.append(fileInfo)
         self.writeMetaData(metadata)
+
+    def append(self, file):
+        metadata = self.readMetaData()
+        fileGet = metadata[0]
+        pageSize = 4096
+        fileGet['Page Size'] = pageSize
+        f = open(file, 'rb')
+        data = f.read()
+        byteRead = fileGet['File Size']
+        count = 0
+        while byteRead < len(data):
+            newPage = {}
+            m = hashlib.md5()
+            IPGet = file + ":" + str(count)
+            m.update(IPGet.encode('utf-8'))
+            newPage["Page"] = count
+            newPage["Guid"] = int(m.hexdigest(), 16)
+            newF = open(IPGet, 'wb')
+            if (len(data)-byteRead) > pageSize:      
+              newF.write(data[byteRead:(byteRead+pageSize)])
+              byteRead += pageSize
+              newPage["Size"] = pageSize
+            else:
+              newF.write(data[byteRead:len(data)])
+              newPage["Size"] = len(data)-byteRead
+              byteRead = len(data)
+            print(IPGet)
+            count = count + 1
+            newF.close()
+        fileGet.append(
+        f.close()
+            
+        
+
+    def calculateSize(self, getSize, count):
+        if getSize < 2:
+            return count
+        else:
+            return self.calculateSize(getSize/2, count+1)
+        
         
     def add(self, item):
         self.list.append(item)

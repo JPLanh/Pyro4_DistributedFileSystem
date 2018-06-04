@@ -68,7 +68,12 @@ def prompt(chord):
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
+  #          try:
+            File = os.path.isfile(fileName)
             chord.newFile(fileName)
+            chord.append(fileName)
+ #           except:
+#                print("File does not exist")
         elif choiceSplit[0].lower() == "join":
             m = hashlib.md5()
             IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
@@ -90,7 +95,7 @@ if __name__ == "__main__":
     chord = Chord(getIP, getPort, guid)
     node = start_server(getIP, getPort, chord)
     node.start()
-    time.sleep(10)
+    time.sleep(2)
     print("Welcome User!")
     while True:
          prompt(chord)
