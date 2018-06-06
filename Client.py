@@ -62,7 +62,7 @@ def prompt(chord):
             print('Download \t down \t  {filename} \t Download the specifed filename')
             print('Exit \t\t exit \t \t\t Exit from the system')
         elif choiceSplit[0].lower() == "ls":
-          chord.simplePrint()
+          chord.ls()
         elif choiceSplit[0].lower() == "ring":
           chord.successor.ringAround(chord, 0)
     elif len(choiceSplit) > 1:
@@ -79,6 +79,12 @@ def prompt(chord):
             IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
             m.update(IPGet.encode('utf-8'))  
             chord.joinRing(int(m.hexdigest(), 16))
+        elif choiceSplit[0].lower() == "del":
+            fileName = getChoice[4:]
+            chord.delete(fileName)
+        elif choiceSplit[0].lower() == "down":
+            fileName = getChoice[5:]
+            chord.download(fileName)            
     
 if __name__ == "__main__":
 #    nameServer = start_name_server()

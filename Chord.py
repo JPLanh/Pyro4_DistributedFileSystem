@@ -167,37 +167,71 @@ class Chord(object):
 
     def append(self, file):
         metadata = self.readMetaData()
-        fileGet = metadata[0]
-        pageSize = 4096
-        fileGet['Page Size'] = pageSize
-        f = open(file, 'rb')
-        data = f.read()
-        byteRead = fileGet['File Size']
-        count = 0
-        while byteRead < len(data):
-            newPage = {}
-            m = hashlib.md5()
-            IPGet = file + ":" + str(count)
-            m.update(IPGet.encode('utf-8'))
-            newPage["Page"] = count
-            newPage["Guid"] = int(m.hexdigest(), 16)
-            newF = open(IPGet, 'wb')
-            if (len(data)-byteRead) > pageSize:      
-              newF.write(data[byteRead:(byteRead+pageSize)])
-              byteRead += pageSize
-              newPage["Size"] = pageSize
-            else:
-              newF.write(data[byteRead:len(data)])
-              newPage["Size"] = len(data)-byteRead
-              byteRead = len(data)
-            print(IPGet)
-            count = count + 1
-            newF.close()
-        fileGet.append(
-        f.close()
-            
-        
+        for x in metadata:
+            if x['File Name'] == file:
+                pageSize = 4096
+                f = open(file, 'rb')
+                data = f.read()
+                byteRead = x['File Size']
+                count = 0
+                while byteRead < len(data):
+                    x['Total Pages'] += 1
+                    newPage = {}
+                    m = hashlib.md5()
+                    IPGet = file + ":" + str(count)
+                    m.update(IPGet.encode('utf-8'))
+                    newPage["Page"] = count
+                    newPage["Guid"] = int(m.hexdigest(), 16)
+                    newF = open(str(self._guid) + "\\repository\\" + str(int(m.hexdigest(), 16)), 'wb')
+                    if (len(data)-byteRead) > pageSize:      
+                      newF.write(data[byteRead:(byteRead+pageSize)])
+                      byteRead += pageSize
+                      newPage["Size"] = pageSize
+                      x['File Size'] += pageSize
+                    else:
+                      newF.write(data[byteRead:len(data)])
+                      newPage["Size"] = len(data)-byteRead
+                      byteRead += len(data)-byteRead
+                      x['File Size'] += len(data)-byteRead
+                    x['Pages'].append(newPage)
+                    count = count + 1
+                    newF.close()
+                self.writeMetaData(metadata)
+                break
 
+    def delete(self, file):
+        metadata = self.readMetaData()
+        for x in metadata:
+            print("%s, %s" %(x['File Name'], file))
+            if x['File Name'] == file:
+                for y in x['Pages']:
+                    os.remove(str(self._guid) + "\\repository\\" + str(y['Guid']))
+                metadata.remove(x)
+                self.writeMetaData(metadata)
+                break;
+
+    def ls(self):
+        metadata = self.readMetaData()
+        for x in metadata:
+            print("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
+
+    def download(self, file):
+        metadata = self.readMetaData()
+        for x in metadata:
+            if x['File Name'] == file:
+                try:
+                    os.makedirs("Download\\")
+                except:
+                    print("good")
+                f = open("Download\\"+file, 'wb')
+                for y in x['Pages']:
+                    print(str(y['Guid']))
+                    tempF = open(str(self._guid) + "\\repository\\" + str(y['Guid']), 'rb')
+                    f.write(tempF.read())
+                    tempF.close()
+                f.close()
+                    
+        
     def calculateSize(self, getSize, count):
         if getSize < 2:
             return count
