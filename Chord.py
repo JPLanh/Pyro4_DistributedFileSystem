@@ -17,7 +17,7 @@ class Chord(object):
         self._predecessor = None
         self.finger = []
         self.nextFinger = 0
-        for i in range(0, self.M):
+        for i in range(0, self.M+1):
             self.finger.append(None)
         print("Loging in as %s:%s" %(ip, port))
         print("Guid: %s" %(guid))
@@ -67,12 +67,11 @@ class Chord(object):
             print("error in notify")
             
     def fixFinger(self):
-        try:
-            nextGuid = self._guid + 1 << (self.nextFinger+1)
-            self.nextFinger = (self.nextFinger + 1)%self.M
-            self.finger[self.nextFinger] = self.locateSuccessor(nextGuid)
-        except:
-            print("error in finger")
+        self.nextFinger = (self.nextFinger + 1)
+        if self.nextFinger > self.M:
+            self.nextFinger = 1
+        nextGuid = self._guid + (1 << (self.nextFinger-1))
+        self.finger[self.nextFinger] = self.locateSuccessor(nextGuid)
     
     def isAlive(self):
         return True
@@ -95,13 +94,16 @@ class Chord(object):
 
     def printFinger(self):
         for i in self.finger:
-            print(i.guid)
+            if i == None:
+                print("None")
+            else:
+                print(i.guid)
 
     def closestPrecedingChord(self, guid):
         if guid != self._guid:
             i = self.M - 1;
             while i >= 0:
-                if self.inInterval("Close", self.finger[i].guid, self._guid, guid):
+                if self.inInterval("Open", self.finger[i].guid, self._guid, guid):
                     if self.finger[i].guid != guid:
                         return self.finger[i]
             return self._successor
@@ -116,13 +118,12 @@ class Chord(object):
         if guid == self._guid:
             print("Error it's the same shit")
         else:
+#            print( "%s | %s" %(self._successor.guid, guid))
             if self._successor.guid != guid:
                 if self.inInterval("Close", guid, self._guid, self._successor.guid):
                     return self._successor
                 else:
                     nextSuccessor = self.closestPrecedingChord(guid)
-                    if nextSuccessor == None:
-                        return None
                     return nextSuccessor.locateSuccessor(guid)
                 
     def joinRing(self, guid):
@@ -132,15 +133,26 @@ class Chord(object):
                 self._predecessor = None
                 print("%s, %s, %s" %(self._guid, chordGet.guid, chordGet.successor.guid))
                 self._successor = chordGet.locateSuccessor(self._guid)
-                print("Joining Ring")                 
+                print("Joining Ring")
 
     def readMetaData(self):
-        jread = open(str(self._guid) + "/repository/metadata", 'r')
+        m = hashlib.md5()
+        m.update("MetaData".encode('utf-8'))
+        meta = int(m.hexdigest(), 16)
+        print("before")
+        guid = self.locateSuccessor(meta)
+        print("after")
+        print(guid.guid)
+        jread = open(str(guid.guid) + "/repository/"+str(meta), 'r')
         jsonRead = json.load(jread)
         return jsonRead["metadata"]
 
     def writeMetaData(self, rawData):
-        f = open(str(self._guid) + "/repository/metadata", 'w')
+        m = hashlib.md5()
+        m.update("MetaData".encode('utf-8'))
+        meta = int(m.hexdigest(), 16)
+        print(self.locateSuccessor(meta).guid)
+        f = open(str(guid.guid) + "/repository/"+str(meta), 'w')
         metadata = {}
         metadata['metadata'] = rawData
         json.dump(metadata, f)

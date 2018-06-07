@@ -25,10 +25,12 @@ class start_server(threading.Thread):
       with Pyro4.Daemon(host=self._ip, port = self._port) as daemon:
           chordURI = daemon.register(self._chord)
           directory = os.path.dirname(str(self._chord.guid)+"/repository/")
+          m = hashlib.md5()
+          m.update("MetaData".encode('utf-8'))
           if not os.path.exists(directory):
             os.makedirs(directory)
           try:
-            f = open(directory+"/metadata", 'r')
+            f = open(directory+"\\"+str(int(m.hexdigest(), 16)), 'r')
           except:
             createMeta(directory)
           with Pyro4.locateNS() as ns:
@@ -40,8 +42,10 @@ def createMeta(path):
   print("File was not found")
   metaData = {}
   fileList = []
+  m = hashlib.md5()
+  m.update("MetaData".encode('utf-8'))
   metaData["metadata"] = fileList  
-  f = open(path+"/metadata", 'w')
+  f = open(path+"/"+str(int(m.hexdigest(), 16)), 'w')
   json.dump(metaData, f)
   f.close()
   
@@ -65,6 +69,10 @@ def prompt(chord):
           chord.ls()
         elif choiceSplit[0].lower() == "ring":
           chord.successor.ringAround(chord, 0)
+        elif choiceSplit[0].lower() == "finger":
+            chord.printFinger()
+        elif choiceSplit[0].lower() == "sap":
+            chord.simplePrint()
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
@@ -91,8 +99,6 @@ if __name__ == "__main__":
 #    nameServer.start()
     getIP = input("IP:")
     getPort = int(input("Port:"))
-#    getIP = 'localhost'
-#    getPort = 23245
     #try:
     m = hashlib.md5()
     IPGet = getIP + ":" + str(getPort)
