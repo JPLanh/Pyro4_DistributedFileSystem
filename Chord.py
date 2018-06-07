@@ -155,10 +155,9 @@ class Chord(object):
 
     def ringAround(self, initial, count):
         if self.guid != initial.guid:
-            print("%i : %s" %(count, initial.guid))
-            self._successor.ringAround(initial, count+1)
+            return self._successor.ringAround(initial, count+1)
         else:
-            print("%i : %s" %(count, initial.guid))            
+            return count            
         
     def newFile(self, file):
         metadata = self.readMetaData()
@@ -176,9 +175,9 @@ class Chord(object):
         metadata = self.readMetaData()
         for x in metadata:
             if x['File Name'] == file:
-                pageSize = 4096
                 f = open(file, 'rb')
                 data = f.read()
+                pageSize = self.calculateSize(len(data))
                 byteRead = x['File Size']
                 count = 0
                 while byteRead < len(data):
@@ -235,11 +234,16 @@ class Chord(object):
                 f.close()
                     
         
-    def calculateSize(self, getSize, count):
+    def calculateSize(self, getSize):
+        cutSize = getSize / (self.ringAround(self._successor, 0)*5)
+        print(cutSize)
+        return 2**self.findBinary(cutSize, 0)
+
+    def findBinary(self, getSize, count):
         if getSize < 2:
             return count
         else:
-            return self.calculateSize(getSize/2, count+1)
+            return self.findBinary(getSize/2, count+1)
         
         
     def add(self, item):
