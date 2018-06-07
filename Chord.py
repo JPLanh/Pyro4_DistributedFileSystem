@@ -1,6 +1,7 @@
 import Pyro4
 from Pyro4 import naming
 import hashlib
+import ctypes
 import os
 import json
 import threading
@@ -118,7 +119,6 @@ class Chord(object):
         if guid == self._guid:
             print("Error it's the same shit")
         else:
-#            print( "%s | %s" %(self._successor.guid, guid))
             if self._successor.guid != guid:
                 if self.inInterval("Close", guid, self._guid, self._successor.guid):
                     return self._successor
@@ -128,22 +128,18 @@ class Chord(object):
                 
     def joinRing(self, guid):
         with Pyro4.locateNS() as ns:
+            print("Joining Ring")
             for guidGet, guidURI in ns.list(prefix=str(guid)).items():
                 chordGet = Pyro4.Proxy(guidURI)
                 self._predecessor = None
-                print("%s, %s, %s" %(self._guid, chordGet.guid, chordGet.successor.guid))
                 self._successor = chordGet.locateSuccessor(self._guid)
-                print("Joining Ring")
+                print("Connected to %s:%s" %(self._successor.ip, self._successor.port))
 
     def readMetaData(self):
         m = hashlib.md5()
         m.update("MetaData".encode('utf-8'))
         meta = int(m.hexdigest(), 16)
-        print("before")
-        guid = self.locateSuccessor(meta)
-        print("after")
-        print(guid.guid)
-        jread = open(str(guid.guid) + "/repository/"+str(meta), 'r')
+        jread = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'r')
         jsonRead = json.load(jread)
         return jsonRead["metadata"]
 
@@ -151,8 +147,7 @@ class Chord(object):
         m = hashlib.md5()
         m.update("MetaData".encode('utf-8'))
         meta = int(m.hexdigest(), 16)
-        print(self.locateSuccessor(meta).guid)
-        f = open(str(guid.guid) + "/repository/"+str(meta), 'w')
+        f = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'w')
         metadata = {}
         metadata['metadata'] = rawData
         json.dump(metadata, f)
@@ -194,7 +189,8 @@ class Chord(object):
                     m.update(IPGet.encode('utf-8'))
                     newPage["Page"] = count
                     newPage["Guid"] = int(m.hexdigest(), 16)
-                    newF = open(str(self._guid) + "\\repository\\" + str(int(m.hexdigest(), 16)), 'wb')
+                    chordGet = self.locateSuccessor(int(m.hexdigest(), 16))
+                    newF = open(str(chordGet.guid) + "\\repository\\" + str(int(m.hexdigest(), 16)), 'wb')
                     if (len(data)-byteRead) > pageSize:      
                       newF.write(data[byteRead:(byteRead+pageSize)])
                       byteRead += pageSize
@@ -209,15 +205,15 @@ class Chord(object):
                     count = count + 1
                     newF.close()
                 self.writeMetaData(metadata)
-                break
-
+                break                
+        
     def delete(self, file):
         metadata = self.readMetaData()
         for x in metadata:
             print("%s, %s" %(x['File Name'], file))
             if x['File Name'] == file:
                 for y in x['Pages']:
-                    os.remove(str(self._guid) + "\\repository\\" + str(y['Guid']))
+                    os.remove(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']))
                 metadata.remove(x)
                 self.writeMetaData(metadata)
                 break;
@@ -231,14 +227,9 @@ class Chord(object):
         metadata = self.readMetaData()
         for x in metadata:
             if x['File Name'] == file:
-                try:
-                    os.makedirs("Download\\")
-                except:
-                    print("good")
                 f = open("Download\\"+file, 'wb')
                 for y in x['Pages']:
-                    print(str(y['Guid']))
-                    tempF = open(str(self._guid) + "\\repository\\" + str(y['Guid']), 'rb')
+                    tempF = open(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']), 'rb')
                     f.write(tempF.read())
                     tempF.close()
                 f.close()

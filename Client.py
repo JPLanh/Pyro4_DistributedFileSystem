@@ -2,6 +2,7 @@ import Pyro4
 from Pyro4 import naming
 import hashlib
 import os
+import ctypes
 import threading
 import time
 import json
@@ -99,11 +100,13 @@ if __name__ == "__main__":
 #    nameServer.start()
     getIP = input("IP:")
     getPort = int(input("Port:"))
+    system(getIP +":"+getPort)
     #try:
     m = hashlib.md5()
     IPGet = getIP + ":" + str(getPort)
     m.update(IPGet.encode('utf-8'))
     guid = int(m.hexdigest(), 16)
+    system(getIP +":"+getPort + " (" + guid + ")")
     chord = Chord(getIP, getPort, guid)
     node = start_server(getIP, getPort, chord)
     node.start()
@@ -111,4 +114,5 @@ if __name__ == "__main__":
     print("Welcome User!")
     while True:
          prompt(chord)
-
+         if chord.successor != chord.guid:
+             ctypes.windll.kernel32.SetConsoleTitleW(IPGet + "-> " + str(chord.successor.ip) + ":" + str(chord.successor.port))
