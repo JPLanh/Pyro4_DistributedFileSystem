@@ -6,6 +6,10 @@ import ctypes
 import threading
 import time
 import json
+import constant
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import asymmetric, serialization
 from Chord import Chord
 
 class start_name_server(threading.Thread):
@@ -30,25 +34,50 @@ class start_server(threading.Thread):
           m.update("MetaData".encode('utf-8'))
           if not os.path.exists(directory):
             os.makedirs(directory)
-          try:
-            f = open(directory+"\\"+str(int(m.hexdigest(), 16)), 'r')
-          except:
-            createMeta(directory)
           with Pyro4.locateNS() as ns:
             ns.register(str(self._chord.guid), chordURI)
           print("Thread started")
           daemon.requestLoop()
 
-def createMeta(path):
-  print("File was not found")
-  metaData = {}
-  fileList = []
-  m = hashlib.md5()
-  m.update("MetaData".encode('utf-8'))
-  metaData["metadata"] = fileList  
-  f = open(path+"/"+str(int(m.hexdigest(), 16)), 'w')
-  json.dump(metaData, f)
-  f.close()
+def register():
+    privateKey = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+
+    privPem = privateKey.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+
+    pubKey = privateKey.public_key()
+    pubPem = pubKey.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    
+    if not os.path.exists(constant.USB_DIR):
+     os.makedirs(constant.USB_DIR)
+     
+    privateWrite = open(constant.PRIVATE_PEM, 'wb')
+    privateWrite.write(privPem)
+    privateWrite.close()
+    publicWrite = open(constant.PUBLIC_PEM, 'wb')
+    publicWrite.write(pubPem)
+    publicWrite.close()
+
+    
+    metaData = {}
+    fileList = []
+    m = hashlib.md5()
+    m.update("MetaData".encode('utf-8'))
+    metaData["metadata"] = fileList  
+    f = open(constant.USB_DIR+str(int(m.hexdigest(), 16)), 'w')
+    json.dump(metaData, f)
+    f.close()
+        
   
 def prompt(chord):
     print("\n\n")
@@ -62,6 +91,7 @@ def prompt(chord):
         if choiceSplit[0].lower() == "help":
             print('\nAction \t\t Command   Argument \t Description')
             print('{:#^50}'.format(""))
+            print('Register \t reg    \t  \t\t Register yourself')
             print('List Files \t ls    \t  \t\t List all files')
             print('Upload \t\t up \t  {filename} \t Upload the specifed filename')
             print('Download \t down \t  {filename} \t Download the specifed filename')
@@ -74,8 +104,8 @@ def prompt(chord):
             chord.printFinger()
         elif choiceSplit[0].lower() == "sap":
             chord.simplePrint()
-        elif choiceSplit[0].lower() == "key":
-            chord.generateKey()
+        elif choiceSplit[0].lower() == "reg":
+            register()
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
@@ -98,11 +128,7 @@ def prompt(chord):
             chord.download(fileName)            
     
 if __name__ == "__main__":
-#    nameServer = start_name_server()
-#    nameServer.start()
-#    getIP = input("IP:")
-#    getPort = int(input("Port:"))
-    getIP = 'localhost'
+    getIP = "localhost"
     getPort = 23249
     #try:
     m = hashlib.md5()
@@ -123,5 +149,3 @@ if __name__ == "__main__":
          prompt(chord)
          if chord.successor != chord.guid:
              ctypes.windll.kernel32.SetConsoleTitleW(IPGet + "-> " + str(chord.successor.ip) + ":" + str(chord.successor.port))
-
-

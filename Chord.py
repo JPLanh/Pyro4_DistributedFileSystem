@@ -10,9 +10,6 @@ import Encryptor
 import Decryptor
 import time
 from base64 import b64encode, b64decode
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import asymmetric, serialization
 
 @Pyro4.expose
 class Chord(object):
@@ -57,15 +54,15 @@ class Chord(object):
         return self._predecessor
 
     def stabilize(self):
-        try:
-            if self._successor != None:
+        if self._successor != None:
+            try:
                 x = self._successor.predecessor
                 if x != None and x.guid != self._guid and self.inInterval("Open", x.guid, self._guid, self._successor.guid):
                     self._successor = x
-               # if self._successor.guid != self._guid:
                 self._successor.notify(self)
-        except:
-            print("error in stabilize")
+            except:
+                x = self
+                self._successor = x
             
     def notify(self, chord):
         try:            
@@ -83,35 +80,12 @@ class Chord(object):
     
     def isAlive(self):
         return True
-
-    def generateKey(self):
-        privateKey = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-
-        privPem = privateKey.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-
-        pubKey = privateKey.public_key()
-        pubPem = pubKey.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-
-        privateWrite = open(constant.PRIVATE_PEM, 'wb')
-        privateWrite.write(privPem)
-        privateWrite.close()
-        publicWrite = open(constant.PUBLIC_PEM, 'wb')
-        publicWrite.write(pubPem)
-        publicWrite.close()
     
     def checkPredecessor(self):
-        if self._predecessor != None and not self._predecessor.isAlive():
+        try:
+            if self._predecessor != None and not self._predecessor.isAlive():
+                self._predecessor = None
+        except:
             self._predecessor = None
 
     def inInterval(self, intType, guid, begin, end):
@@ -172,7 +146,8 @@ class Chord(object):
         m = hashlib.md5()
         m.update("MetaData".encode('utf-8'))
         meta = int(m.hexdigest(), 16)
-        jread = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'r')
+        #jread = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'r')
+        jread = open(constant.USB_DIR+str(meta), 'r')
         jsonRead = json.load(jread)
         return jsonRead["metadata"]
 
@@ -180,7 +155,8 @@ class Chord(object):
         m = hashlib.md5()
         m.update("MetaData".encode('utf-8'))
         meta = int(m.hexdigest(), 16)
-        f = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'w')
+        #f = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'w')
+        f = open(constant.USB_DIR+str(meta), 'w')
         metadata = {}
         metadata['metadata'] = rawData
         json.dump(metadata, f)
@@ -188,8 +164,10 @@ class Chord(object):
 
     def ringAround(self, initial, count):
         if self.guid != initial.guid:
+            print("%s: %s" %(count, self.guid))
             return self._successor.ringAround(initial, count+1)
         else:
+            print("%s: %s" %(count, self.guid))
             return count            
         
     def newFile(self, file):
@@ -269,7 +247,9 @@ class Chord(object):
         metadata = self.readMetaData()
         for x in metadata:
             if x['File Name'] == file:
-                f = open("Download\\"+file, 'wb')
+                if not os.path.exists("./Download"):
+                    os.makedirs("./Download")
+                f = open("./Download/"+file, 'wb')
                 for y in x['Pages']:
                     tempF = open(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']), 'rb')
                     f.write(Decryptor.initialize(b64decode(y['RSACipher']), tempF.read(), b64decode(y['IV']), b64decode(y['Tag'])))
@@ -288,13 +268,6 @@ class Chord(object):
             return count
         else:
             return self.findBinary(getSize/2, count+1)
-        
-        
-    def add(self, item):
-        self.list.append(item)
-
-    def remove(self, item):
-        self.list.remove(item)
 
 class looping(threading.Thread):
     def __init__(self, chord):
@@ -306,4 +279,4 @@ class looping(threading.Thread):
             self.chord.stabilize()
             self.chord.fixFinger()
             self.chord.checkPredecessor()
-            time.sleep(5)
+            time.sleep(2)
