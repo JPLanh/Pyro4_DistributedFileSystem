@@ -1,3 +1,5 @@
 KEY_BYTE_SIZE = 32
 IV_BYTE_SIZE = 16
 PADDING_BLOCK_SIZE = 128
+PRIVATE_PEM = "private.pem"
+PUBLIC_PEM = "public.pem"

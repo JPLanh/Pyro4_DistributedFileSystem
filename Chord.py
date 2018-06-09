@@ -5,7 +5,14 @@ import ctypes
 import os
 import json
 import threading
+import constant
+import Encryptor
+import Decryptor
 import time
+from base64 import b64encode, b64decode
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import asymmetric, serialization
 
 @Pyro4.expose
 class Chord(object):
@@ -76,6 +83,32 @@ class Chord(object):
     
     def isAlive(self):
         return True
+
+    def generateKey(self):
+        privateKey = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+
+        privPem = privateKey.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        pubKey = privateKey.public_key()
+        pubPem = pubKey.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+        privateWrite = open(constant.PRIVATE_PEM, 'wb')
+        privateWrite.write(privPem)
+        privateWrite.close()
+        publicWrite = open(constant.PUBLIC_PEM, 'wb')
+        publicWrite.write(pubPem)
+        publicWrite.close()
     
     def checkPredecessor(self):
         if self._predecessor != None and not self._predecessor.isAlive():
@@ -190,13 +223,23 @@ class Chord(object):
                     newPage["Guid"] = int(m.hexdigest(), 16)
                     chordGet = self.locateSuccessor(int(m.hexdigest(), 16))
                     newF = open(str(chordGet.guid) + "\\repository\\" + str(int(m.hexdigest(), 16)), 'wb')
-                    if (len(data)-byteRead) > pageSize:      
-                      newF.write(data[byteRead:(byteRead+pageSize)])
+                    if (len(data)-byteRead) > pageSize:
+                      RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:(byteRead+pageSize)])
+                      newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+                      newPage["IV"] = b64encode(IV).decode('utf-8')
+                      newPage["Tag"] = b64encode(tag).decode('utf-8')
+                      newF.write(cipherText)
+#                      newF.write(data[byteRead:(byteRead+pageSize)])
                       byteRead += pageSize
                       newPage["Size"] = pageSize
                       x['File Size'] += pageSize
                     else:
-                      newF.write(data[byteRead:len(data)])
+                      RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:len(data)])
+                      newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+                      newPage["IV"] = b64encode(IV).decode('utf-8')
+                      newPage["Tag"] = b64encode(tag).decode('utf-8')
+                      newF.write(cipherText)
+#                      newF.write(data[byteRead:len(data)])
                       newPage["Size"] = len(data)-byteRead
                       byteRead += len(data)-byteRead
                       x['File Size'] += len(data)-byteRead
@@ -229,7 +272,8 @@ class Chord(object):
                 f = open("Download\\"+file, 'wb')
                 for y in x['Pages']:
                     tempF = open(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']), 'rb')
-                    f.write(tempF.read())
+                    f.write(Decryptor.initialize(b64decode(y['RSACipher']), tempF.read(), b64decode(y['IV']), b64decode(y['Tag'])))
+#                    f.write(tempF.read())
                     tempF.close()
                 f.close()
                     

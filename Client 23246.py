@@ -74,6 +74,8 @@ def prompt(chord):
             chord.printFinger()
         elif choiceSplit[0].lower() == "sap":
             chord.simplePrint()
+        elif choiceSplit[0].lower() == "key":
+            chord.generateKey()
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]

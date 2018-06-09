@@ -8,33 +8,25 @@ from cryptography.hazmat.primitives import serialization, hashes, hmac, asymmetr
 
 def dataEncrypt(message, encKey, hMacKey):
     if len(encKey) == constant.KEY_BYTE_SIZE:
-        if len(hMACKey) == constant.KEY_BYTE_SIZE:
+        if len(hMacKey) == constant.KEY_BYTE_SIZE:
             IV = os.urandom(constant.IV_BYTE_SIZE)
             cipher = Cipher(algorithms.AES(encKey), modes.CBC(IV), backend=default_backend())
             cipherEncrypt = cipher.encryptor()
             pad = padding.PKCS7(constant.PADDING_BLOCK_SIZE).padder()
             cipherText = pad.update(message) + pad.finalize()
             cipherText = cipherEncrypt.update(cipherText) + cipherEncrypt.finalize()
-            hTag = hmac.HMAC(HMacKey, hashes.SHA256(), backend=default_backend())
+            hTag = hmac.HMAC(hMacKey, hashes.SHA256(), backend=default_backend())
             hTag.update(cipherText)
             hTag = hTag.finalize()
             return cipherText, IV, hTag
 
-def loadFile(file):
-    os.path.isfile(filepath)
+def initialize(message):
     encKey = os.urandom(constant.KEY_BYTE_SIZE)
     hMacKey = os.urandom(constant.KEY_BYTE_SIZE)
-    f = open(filepath, 'rb')
-    data = f.read()
-    f.close()
-    cipherText, IV, tag = dataEncrypt(data, encKey, hMacKey)
-    return cipherText, IV, tag, encKey, hMacKey
-
-def initalize(file, publicKey):
-    cipherText, IV, tag, encKey, hMacKey = loadFile(file)
+    cipherText, IV, tag = dataEncrypt(message, encKey, hMacKey)
     if cipherText != None:
-        f=open(publicKey)
-        publicKey = serialization.load_pem_public_key(
+        f=open(constant.PUBLIC_PEM, 'rb')
+        public_key = serialization.load_pem_public_key(
             f.read(),
             backend=default_backend()
         )

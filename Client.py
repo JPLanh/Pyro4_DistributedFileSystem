@@ -6,6 +6,7 @@ import ctypes
 import threading
 import time
 import json
+
 from Chord import Chord
 
 class start_name_server(threading.Thread):
@@ -74,6 +75,8 @@ def prompt(chord):
             chord.printFinger()
         elif choiceSplit[0].lower() == "sap":
             chord.simplePrint()
+        elif choiceSplit[0].lower() == "key":
+            chord.generateKey()
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
@@ -100,13 +103,12 @@ if __name__ == "__main__":
 #    nameServer.start()
     getIP = input("IP:")
     getPort = int(input("Port:"))
-    system(getIP +":"+getPort)
     #try:
     m = hashlib.md5()
     IPGet = getIP + ":" + str(getPort)
     m.update(IPGet.encode('utf-8'))
     guid = int(m.hexdigest(), 16)
-    system(getIP +":"+getPort + " (" + guid + ")")
+    ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
     chord = Chord(getIP, getPort, guid)
     node = start_server(getIP, getPort, chord)
     node.start()
