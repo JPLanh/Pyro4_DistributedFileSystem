@@ -133,11 +133,13 @@ class Chord(object):
                     nextSuccessor = self.closestPrecedingChord(guid)
                     return nextSuccessor.locateSuccessor(guid)
                 
-    def joinRing(self, guid):
+    def joinRing(self, dest, guid):
         with Pyro4.locateNS() as ns:
             print("Joining Ring")
             for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-                chordGet = Pyro4.Proxy(guidURI)
+                uri = guidURI[:guidURI.find("@")]+"@"+dest
+                print(uri)
+                chordGet = Pyro4.Proxy(uri)
                 self._predecessor = None
                 self._successor = chordGet.locateSuccessor(self._guid)
                 print("Connected to %s:%s" %(self._successor.ip, self._successor.port))
@@ -203,7 +205,7 @@ class Chord(object):
             chainEncryption["RSACipher"], chainEncryption["cipherText"], chainEncryption["IV"], chainEncryption["tag"] = Encryptor.initialize(data)
             return self.chainEncrypt(chainEncryption["cipherText"], count+1, chainEncryption)
         else:
-            
+            print("LOL")
         
     
 
