@@ -34,7 +34,8 @@ class start_server(threading.Thread):
           m.update("MetaData".encode('utf-8'))
           if not os.path.exists(directory):
             os.makedirs(directory)
-          with Pyro4.locateNS() as ns:
+          print("Pyro")
+          with Pyro4.locateNS(host=self._ip, port= self._port) as ns:
             ns.register(str(self._chord.guid), chordURI)
           print("Thread started")
           daemon.requestLoop()
@@ -119,7 +120,7 @@ def prompt(chord):
             m = hashlib.md5()
             IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
             m.update(IPGet.encode('utf-8'))  
-            chord.joinRing(int(m.hexdigest(), 16))
+            chord.joinRing(IPGet, int(m.hexdigest(), 16))
         elif choiceSplit[0].lower() == "del":
             fileName = getChoice[4:]
             chord.delete(fileName)
