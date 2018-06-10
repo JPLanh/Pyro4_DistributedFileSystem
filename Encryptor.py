@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.primitives import serialization, hashes, hmac, asymmetric, padding
+from cryptography.exceptions import InvalidSignature
 
 def dataEncrypt(message, encKey, hMacKey):
     if len(encKey) == constant.KEY_BYTE_SIZE:
@@ -19,6 +20,42 @@ def dataEncrypt(message, encKey, hMacKey):
             hTag.update(cipherText)
             hTag = hTag.finalize()
             return cipherText, IV, hTag
+
+def chainEncryption(message, tag, encKey, hMacKey):
+    checkTag = hmac.HMAC(hMacKey, hashes.SHA256(), backend=default_backend())
+    checkTag.update(message)
+    try:
+        checkTag.verify(tag)
+        newEncKey = os.urandom(constant.KEY_BYTE_SIZE)
+        newHMacKey = os.urandom(constant.KEY_BYTE_SIZE)
+        return dataEncrypt(message, newEncKey, newHMacKey), newEncKey, hMacKey
+    except InvalidSignature:
+        return None
+
+def chainInitialize(RSACipher, cipherText, IV, tag):
+    f=open(constant.PRIVATE_PEM, 'rb')
+    private_key = serialization.load_pem_private_key(
+        f.read(),
+        password=None,
+        backend=default_backend()
+    )
+
+    key = private_key.decrypt(
+        RSACipher,
+        asymmetric.padding.OAEP(
+            mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    encKey = key[:32]
+    hMacKey = key[32:]
+
+    newCipher, newIV, newTag, newEnc, newHMac = chainEncryption(cipherText, tag, encKey, hMacKey)
+
+    #finish here
+    
 
 def initialize(message):
     encKey = os.urandom(constant.KEY_BYTE_SIZE)

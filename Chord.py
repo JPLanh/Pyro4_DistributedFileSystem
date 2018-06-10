@@ -164,10 +164,8 @@ class Chord(object):
 
     def ringAround(self, initial, count):
         if self.guid != initial.guid:
-            print("%s: %s" %(count, self.guid))
             return self._successor.ringAround(initial, count+1)
         else:
-            print("%s: %s" %(count, self.guid))
             return count            
         
     def newFile(self, file):
@@ -181,6 +179,33 @@ class Chord(object):
         fileInfo['Pages'] = pages
         metadata.append(fileInfo)
         self.writeMetaData(metadata)
+
+    def distribute(self, file):
+        metadata = self.readMetaData()
+        for x in metadata:
+            if x['File Name'] == file:
+                f = open(file, 'rb')
+                data = f.read()
+                pageSize = self.calculateSize(len(data))
+                byteRead = x['File Size']
+                count = 0
+                while byteRead < len(data):
+                    chainEncryption = {}
+                    if (len(data)-byteRead) > pageSize:
+                        self.chainEncrypt(data[byteRead:(byteRead+pageSize)], 0, chainEncryption)
+                    else:
+                        self.chainEncrypt(data[byteRead:len(data)], 0, chainEncryption)
+
+    def chainEncrypt(self, data, count, chainEncrpytion):
+        if count == constant.MAX_CHAIN_ENCRYPTION:
+            return count
+        elif count == 0:
+            chainEncryption["RSACipher"], chainEncryption["cipherText"], chainEncryption["IV"], chainEncryption["tag"] = Encryptor.initialize(data)
+            return self.chainEncrypt(chainEncryption["cipherText"], count+1, chainEncryption)
+        else:
+            
+        
+    
 
     def append(self, file):
         metadata = self.readMetaData()
@@ -199,38 +224,31 @@ class Chord(object):
                     m.update(IPGet.encode('utf-8'))
                     newPage["Page"] = count
                     newPage["Guid"] = int(m.hexdigest(), 16)
-                    chordGet = self.locateSuccessor(int(m.hexdigest(), 16))
-                    newF = open(str(chordGet.guid) + "\\repository\\" + str(int(m.hexdigest(), 16)), 'wb')
+                    chordGet = self.locateSuccessor(newPage["Guid"])
                     if (len(data)-byteRead) > pageSize:
                       RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:(byteRead+pageSize)])
-                      newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-                      newPage["IV"] = b64encode(IV).decode('utf-8')
-                      newPage["Tag"] = b64encode(tag).decode('utf-8')
-                      newF.write(cipherText)
-#                      newF.write(data[byteRead:(byteRead+pageSize)])
-                      byteRead += pageSize
                       newPage["Size"] = pageSize
+                      byteRead += pageSize
                       x['File Size'] += pageSize
                     else:
                       RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:len(data)])
-                      newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-                      newPage["IV"] = b64encode(IV).decode('utf-8')
-                      newPage["Tag"] = b64encode(tag).decode('utf-8')
-                      newF.write(cipherText)
-#                      newF.write(data[byteRead:len(data)])
                       newPage["Size"] = len(data)-byteRead
                       byteRead += len(data)-byteRead
                       x['File Size'] += len(data)-byteRead
+                    newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+                    newPage["IV"] = b64encode(IV).decode('utf-8')
+                    newPage["Tag"] = b64encode(tag).decode('utf-8')
                     x['Pages'].append(newPage)
                     count = count + 1
+                    newF = open(str(chordGet.guid) + "\\repository\\" + str(newPage["Guid"]), 'wb')
+                    newF.write(cipherText)
                     newF.close()
                 self.writeMetaData(metadata)
                 break                
-        
+    
     def delete(self, file):
         metadata = self.readMetaData()
         for x in metadata:
-            print("%s, %s" %(x['File Name'], file))
             if x['File Name'] == file:
                 for y in x['Pages']:
                     os.remove(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']))
@@ -260,7 +278,6 @@ class Chord(object):
         
     def calculateSize(self, getSize):
         cutSize = getSize / (self.ringAround(self._successor, 0)*5)
-        print(cutSize)
         return 2**self.findBinary(cutSize, 0)
 
     def findBinary(self, getSize, count):

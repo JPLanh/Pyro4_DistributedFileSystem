@@ -109,12 +109,12 @@ def prompt(chord):
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
-  #          try:
-            File = os.path.isfile(fileName)
-            chord.newFile(fileName)
-            chord.append(fileName)
- #           except:
-#                print("File does not exist")
+            try:
+                File = os.path.isfile(fileName)
+                chord.newFile(fileName)
+                chord.append(fileName)
+            except:
+                print("File does not exist")
         elif choiceSplit[0].lower() == "join":
             m = hashlib.md5()
             IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
