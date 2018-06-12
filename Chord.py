@@ -70,16 +70,17 @@ class Chord(object):
                 if x != None and x.guid != self._guid and self.inInterval("Close", x.guid, self._guid, self._successor.guid):
                     self._successor = x
                 if self._successor.guid != self._guid:
-                    print("%s, %s" %(self._successor.guid, self._guid))
+#                    print("%s, %s" %(self._successor.guid, self._guid))
                     self._successor.notify(self)
             except:
                 x = self
                 self._successor = x
             
     def notify(self, chord):
-        if self._predecessor != None:
+        if self._predecessor == None:
+            self._predecessor = chord
+        else:
             if self.inInterval("Close", chord.guid, self._predecessor.guid, self._guid):
-                print("Inside notify")
                 self._predecessor = chord
                 
             
@@ -96,11 +97,10 @@ class Chord(object):
     def checkPredecessor(self):
         try:
             if self._predecessor != None:
+                print(self._predecessor.guid)
                 if not self._predecessor.isAlive():
-                    print("Not alive")
                     self._predecessor = None
         except:
-            print("Exception")
             self._predecessor = None
 
     def inInterval(self, intType, guid, begin, end):
