@@ -1,8 +1,9 @@
-import Pyro4
-from Pyro4 import naming
 import hashlib
 import ctypes
 import os
+import Pyro4
+from Pyro4 import naming
+import logging
 import json
 import threading
 import constant
@@ -13,7 +14,7 @@ from base64 import b64encode, b64decode
 
 @Pyro4.expose
 class Chord(object):
-    def __init__(self, ip, port, guid):
+    def __init__(self, ip, port, guid, server):
         self.M = 3
         self._ip = ip
         self._port = port
@@ -26,8 +27,9 @@ class Chord(object):
             self.finger.append(None)
         print("Loging in as %s:%s" %(ip, port))
         print("Guid: %s" %(guid))
-        thread1 = looping(self)
-        thread1.start()
+        if server:
+            thread1 = looping(self)
+            thread1.start()
 
     @property
     def ip(self):
@@ -53,23 +55,34 @@ class Chord(object):
     def predecessor(self):
         return self._predecessor
 
+    def joinRing(self, getIp, getPort, guid):
+        with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
+            for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+                chordGet = Pyro4.Proxy(guidURI)
+                self._predecessor = None
+                self._successor = chordGet.locateSuccessor(self._guid)
+                return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
+
     def stabilize(self):
         if self._successor != None:
             try:
                 x = self._successor.predecessor
-                if x != None and x.guid != self._guid and self.inInterval("Open", x.guid, self._guid, self._successor.guid):
+                if x != None and x.guid != self._guid and self.inInterval("Close", x.guid, self._guid, self._successor.guid):
                     self._successor = x
-                self._successor.notify(self)
+                if self._successor.guid != self._guid:
+#                    print("%s, %s" %(self._successor.guid, self._guid))
+                    self._successor.notify(self)
             except:
                 x = self
                 self._successor = x
             
     def notify(self, chord):
-        try:            
-            if self._predecessor == None or (self._predecessor != None and self.inInterval("Open", chord.guid, self._predecessor.guid, self._guid)):
+        if self._predecessor == None:
+            self._predecessor = chord
+        else:
+            if self.inInterval("Close", chord.guid, self._predecessor.guid, self._guid):
                 self._predecessor = chord
-        except:
-            print("error in notify")
+                
             
     def fixFinger(self):
         self.nextFinger = (self.nextFinger + 1)
@@ -83,8 +96,10 @@ class Chord(object):
     
     def checkPredecessor(self):
         try:
-            if self._predecessor != None and not self._predecessor.isAlive():
-                self._predecessor = None
+            if self._predecessor != None:
+                print(self._predecessor.guid)
+                if not self._predecessor.isAlive():
+                    self._predecessor = None
         except:
             self._predecessor = None
 
@@ -118,13 +133,13 @@ class Chord(object):
 
     def simplePrint(self):
         if self.predecessor != None:
-            print("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor.guid))
+            return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor.guid))
         else:
-            print("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor))
+            return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor))
             
     def locateSuccessor(self, guid):
         if guid == self._guid:
-            print("Error it's the same shit")
+            print ("Error it's the same shit")
         else:
             if self._successor.guid != guid:
                 if self.inInterval("Close", guid, self._guid, self._successor.guid):
@@ -132,17 +147,6 @@ class Chord(object):
                 else:
                     nextSuccessor = self.closestPrecedingChord(guid)
                     return nextSuccessor.locateSuccessor(guid)
-                
-    def joinRing(self, dest, guid):
-        with Pyro4.locateNS() as ns:
-            print("Joining Ring")
-            for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-                uri = guidURI[:guidURI.find("@")]+"@"+dest
-                print(uri)
-                chordGet = Pyro4.Proxy(uri)
-                self._predecessor = None
-                self._successor = chordGet.locateSuccessor(self._guid)
-                print("Connected to %s:%s" %(self._successor.ip, self._successor.port))
 
     def readMetaData(self):
         m = hashlib.md5()
@@ -165,6 +169,7 @@ class Chord(object):
         f.close()
 
     def ringAround(self, initial, count):
+        print("ping ring: %s (%s)" %(count, self.guid))
         if self.guid != initial.guid:
             return self._successor.ringAround(initial, count+1)
         else:
@@ -207,8 +212,6 @@ class Chord(object):
         else:
             print("LOL")
         
-    
-
     def append(self, file):
         metadata = self.readMetaData()
         for x in metadata:
@@ -260,8 +263,10 @@ class Chord(object):
 
     def ls(self):
         metadata = self.readMetaData()
+        array = []
         for x in metadata:
-            print("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
+            array.append("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
+        return array
 
     def download(self, file):
         metadata = self.readMetaData()
@@ -295,7 +300,9 @@ class looping(threading.Thread):
 
     def run(self):
         while True:
+        #    print("before stab: %s" %self.chord.successor)
             self.chord.stabilize()
+         #   print("after stab: %s" %self.chord.successor)
             self.chord.fixFinger()
             self.chord.checkPredecessor()
             time.sleep(2)
