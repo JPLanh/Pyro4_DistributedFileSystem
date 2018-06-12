@@ -1,8 +1,9 @@
-import Pyro4
-from Pyro4 import naming
 import hashlib
 import ctypes
 import os
+import Pyro4
+from Pyro4 import naming
+import logging
 import json
 import threading
 import constant
@@ -13,7 +14,7 @@ from base64 import b64encode, b64decode
 
 @Pyro4.expose
 class Chord(object):
-    def __init__(self, ip, port, guid):
+    def __init__(self, ip, port, guid, server):
         self.M = 3
         self._ip = ip
         self._port = port
@@ -26,8 +27,9 @@ class Chord(object):
             self.finger.append(None)
         print("Loging in as %s:%s" %(ip, port))
         print("Guid: %s" %(guid))
-        thread1 = looping(self)
-        thread1.start()
+        if server:
+            thread1 = looping(self)
+            thread1.start()
 
     @property
     def ip(self):
@@ -118,13 +120,13 @@ class Chord(object):
 
     def simplePrint(self):
         if self.predecessor != None:
-            print("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor.guid))
+            return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor.guid))
         else:
-            print("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor))
+            return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor))
             
     def locateSuccessor(self, guid):
         if guid == self._guid:
-            print("Error it's the same shit")
+            print ("Error it's the same shit")
         else:
             if self._successor.guid != guid:
                 if self.inInterval("Close", guid, self._guid, self._successor.guid):
@@ -135,14 +137,16 @@ class Chord(object):
                 
     def joinRing(self, dest, guid):
         with Pyro4.locateNS() as ns:
-            print("Joining Ring")
             for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-                uri = guidURI[:guidURI.find("@")]+"@"+dest
-                print(uri)
-                chordGet = Pyro4.Proxy(uri)
+                chordGet = Pyro4.Proxy(guidURI)
                 self._predecessor = None
                 self._successor = chordGet.locateSuccessor(self._guid)
-                print("Connected to %s:%s" %(self._successor.ip, self._successor.port))
+                return ("Connected to %s:%s" %(self._successor.ip, self._successor.port))
+##                except:
+##                    print("There's some error")
+##                    logging.basicConfig()
+##                    logging.getLogger("Pyro4").setLevel(logging.DEBUG)
+##                    logging.getLogger("Pyro4.core").setLevel(logging.DEBUG)
 
     def readMetaData(self):
         m = hashlib.md5()
@@ -165,6 +169,7 @@ class Chord(object):
         f.close()
 
     def ringAround(self, initial, count):
+        print("ping ring: %s (%s)" %(count, self.guid))
         if self.guid != initial.guid:
             return self._successor.ringAround(initial, count+1)
         else:
@@ -207,8 +212,6 @@ class Chord(object):
         else:
             print("LOL")
         
-    
-
     def append(self, file):
         metadata = self.readMetaData()
         for x in metadata:
@@ -260,8 +263,10 @@ class Chord(object):
 
     def ls(self):
         metadata = self.readMetaData()
+        array = []
         for x in metadata:
-            print("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
+            array.append("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
+        return array
 
     def download(self, file):
         metadata = self.readMetaData()
@@ -295,6 +300,7 @@ class looping(threading.Thread):
 
     def run(self):
         while True:
+            print("running")
             self.chord.stabilize()
             self.chord.fixFinger()
             self.chord.checkPredecessor()
