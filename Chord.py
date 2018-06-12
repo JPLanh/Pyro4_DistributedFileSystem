@@ -55,23 +55,33 @@ class Chord(object):
     def predecessor(self):
         return self._predecessor
 
+    def joinRing(self, getIp, getPort, guid):
+        with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
+            for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+                chordGet = Pyro4.Proxy(guidURI)
+                self._predecessor = None
+                self._successor = chordGet.locateSuccessor(self._guid)
+                return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
+
     def stabilize(self):
         if self._successor != None:
             try:
                 x = self._successor.predecessor
-                if x != None and x.guid != self._guid and self.inInterval("Open", x.guid, self._guid, self._successor.guid):
+                if x != None and x.guid != self._guid and self.inInterval("Close", x.guid, self._guid, self._successor.guid):
                     self._successor = x
-                self._successor.notify(self)
+                if self._successor.guid != self._guid:
+                    print("%s, %s" %(self._successor.guid, self._guid))
+                    self._successor.notify(self)
             except:
                 x = self
                 self._successor = x
             
     def notify(self, chord):
-        try:            
-            if self._predecessor == None or (self._predecessor != None and self.inInterval("Open", chord.guid, self._predecessor.guid, self._guid)):
+        if self._predecessor != None:
+            if self.inInterval("Close", chord.guid, self._predecessor.guid, self._guid):
+                print("Inside notify")
                 self._predecessor = chord
-        except:
-            print("error in notify")
+                
             
     def fixFinger(self):
         self.nextFinger = (self.nextFinger + 1)
@@ -85,9 +95,12 @@ class Chord(object):
     
     def checkPredecessor(self):
         try:
-            if self._predecessor != None and not self._predecessor.isAlive():
-                self._predecessor = None
+            if self._predecessor != None:
+                if not self._predecessor.isAlive():
+                    print("Not alive")
+                    self._predecessor = None
         except:
+            print("Exception")
             self._predecessor = None
 
     def inInterval(self, intType, guid, begin, end):
@@ -134,19 +147,6 @@ class Chord(object):
                 else:
                     nextSuccessor = self.closestPrecedingChord(guid)
                     return nextSuccessor.locateSuccessor(guid)
-                
-    def joinRing(self, dest, guid):
-        with Pyro4.locateNS() as ns:
-            for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-                chordGet = Pyro4.Proxy(guidURI)
-                self._predecessor = None
-                self._successor = chordGet.locateSuccessor(self._guid)
-                return ("Connected to %s:%s" %(self._successor.ip, self._successor.port))
-##                except:
-##                    print("There's some error")
-##                    logging.basicConfig()
-##                    logging.getLogger("Pyro4").setLevel(logging.DEBUG)
-##                    logging.getLogger("Pyro4.core").setLevel(logging.DEBUG)
 
     def readMetaData(self):
         m = hashlib.md5()
@@ -300,8 +300,9 @@ class looping(threading.Thread):
 
     def run(self):
         while True:
-            print("running")
+        #    print("before stab: %s" %self.chord.successor)
             self.chord.stabilize()
+         #   print("after stab: %s" %self.chord.successor)
             self.chord.fixFinger()
             self.chord.checkPredecessor()
             time.sleep(2)
