@@ -79,23 +79,23 @@ def prompt(chord):
         elif choiceSplit[0].lower() == "finger":
             chord.printFinger()
         elif choiceSplit[0].lower() == "sap":
-            chord.simplePrint()
+            print(chord.simplePrint())
         elif choiceSplit[0].lower() == "reg":
             register()
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
-            try:
-                File = os.path.isfile(fileName)
-                chord.newFile(fileName)
-                chord.append(fileName)
-            except:
-                print("File does not exist")
+#            try:
+            File = os.path.isfile(fileName)
+            chord.newFile(fileName)
+            chord.append(fileName)
+#            except:
+#                print("File does not exist")
         elif choiceSplit[0].lower() == "join":
             m = hashlib.md5()
             IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
             m.update(IPGet.encode('utf-8'))  
-            print(chord.joinRing(IPGet, int(m.hexdigest(), 16)))
+            print(chord.joinRing(choiceSplit[1], str(choiceSplit[2]), int(m.hexdigest(), 16)))
         elif choiceSplit[0].lower() == "del":
             fileName = getChoice[4:]
             chord.delete(fileName)

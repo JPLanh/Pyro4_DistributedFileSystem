@@ -32,7 +32,7 @@ def chainEncryption(message, tag, encKey, hMacKey):
     except InvalidSignature:
         return None
 
-def chainInitialize(RSACipher, cipherText, IV, tag):
+def chainInitialize(RSACipher, cipherText, IV, tag, count):
     f=open(constant.PRIVATE_PEM, 'rb')
     private_key = serialization.load_pem_private_key(
         f.read(),
@@ -49,13 +49,33 @@ def chainInitialize(RSACipher, cipherText, IV, tag):
         )
     )
 
-    encKey = key[:32]
-    hMacKey = key[32:]
+    encKey = key[:len(key)/2]
+    hMacKey = key[len(key)/2:]
 
-    newCipher, newIV, newTag, newEnc, newHMac = chainEncryption(cipherText, tag, encKey, hMacKey)
+    newCipher, newIV, newTag, newEnc, newHMac = chainEncryption(cipherText, tag, encKey[:32], hMacKey[:32)
 
-    #finish here
-    
+    combEncKey = newEnc + encKey
+    combHMacKey = newHMac + hMacKey
+    combIV = newIV + IV
+
+    if newCipher != None:
+        f=open(constant.PUBLIC_PEM, 'rb')
+        public_key = serialization.load_pem_public_key(
+            f.read(),
+            backend=default_backend()
+        )
+
+        RSACipher = public_key.encrypt(
+            combEncKey+combHMacKey,
+            asymmetric.padding.OAEP(
+                mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+                )
+            )
+        
+    return RSACipher, newCipher, combIV, newTag
+   
 
 def initialize(message):
     encKey = os.urandom(constant.KEY_BYTE_SIZE)

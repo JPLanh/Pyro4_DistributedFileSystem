@@ -205,13 +205,14 @@ class Chord(object):
 
     def chainEncrypt(self, data, count, chainEncrpytion):
         if count == constant.MAX_CHAIN_ENCRYPTION:
-            return count
+            return chainEncryption
         elif count == 0:
             chainEncryption["RSACipher"], chainEncryption["cipherText"], chainEncryption["IV"], chainEncryption["tag"] = Encryptor.initialize(data)
             return self.chainEncrypt(chainEncryption["cipherText"], count+1, chainEncryption)
         else:
-            print("LOL")
-        
+            chainEncryption["RSACipher"], chainEncryption["cipherText"], chainEncryption["IV"], chainEncryption["tag"] = Encryptor.chainInitialize(chainEncryption["RSACipher"], chainEncryption["cipherText"], chainEncryption["IV"], chainEncryption["tag"], count)
+            return self.chainEncrypt(chainEncryption["cipherText"], count+1, chainEncryption)
+
     def append(self, file):
         metadata = self.readMetaData()
         for x in metadata:
@@ -243,20 +244,28 @@ class Chord(object):
                     newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
                     newPage["IV"] = b64encode(IV).decode('utf-8')
                     newPage["Tag"] = b64encode(tag).decode('utf-8')
+                    chordGet.createPage(cipherText, newPage["Guid"])
                     x['Pages'].append(newPage)
-                    count = count + 1
-                    newF = open(str(chordGet.guid) + "\\repository\\" + str(newPage["Guid"]), 'wb')
-                    newF.write(cipherText)
-                    newF.close()
+                    count = count + 1                    
                 self.writeMetaData(metadata)
-                break                
-    
+                break
+            
+    def createPage(self, getMessage, getGuid):
+        f = open(self._guid + "\\repository\\" + getGuid, 'wb')
+        f.write(getMessage)
+        f.close()
+
+    def removePage(self, getGuid):
+        os.remove(self._guid +"\\repository\\" + getGuid)
+
     def delete(self, file):
         metadata = self.readMetaData()
         for x in metadata:
             if x['File Name'] == file:
                 for y in x['Pages']:
-                    os.remove(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']))
+                    chordGet = self.locateSuccessor(y['Guid'])
+                    chordGet.removePage(y['Guid'])
+#                    os.remove(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']))
                 metadata.remove(x)
                 self.writeMetaData(metadata)
                 break;
