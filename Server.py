@@ -8,6 +8,7 @@ import time
 import json
 import constant
 import subprocess
+import sys
 from Chord import Chord
 import Client
 
@@ -41,24 +42,27 @@ class start_server(threading.Thread):
           daemon.requestLoop()
             
 if __name__ == "__main__":
-    getIP = input("IP:")
-    getPort = int(input("Port:"))
     #try:
     m = hashlib.md5()
-    IPGet = getIP + ":" + str(getPort)
+    IPGet = sys.argv[1] + ":" + sys.argv[2]
     m.update(IPGet.encode('utf-8'))
     guid = int(m.hexdigest(), 16)
-    ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
-    chord = Chord(getIP, getPort, guid, True)
+    chord = Chord(sys.argv[1], sys.argv[2], guid)
+    ctypes.windll.kernel32.SetConsoleTitleW(sys.argv[1] +":"+ sys.argv[2] + " (" + str(guid) + ")")
 
-    nameServer = start_name_server(getIP, getPort)
+    try:
+        Pyro4.locateNS(host=sys.argv[1], port =int(sys.argv[2]))
+        print("Server has already been started")
+    except:
+        nameServer = start_name_server(sys.argv[1], int(sys.argv[2]))
+        print("Server hasn't been started")
+        
     nameServer.start()
-
-    node = start_server(getIP, getPort, chord)
-    node.start()
     time.sleep(2)
+
+    node = start_server(sys.argv[1], int(sys.argv[2]), chord)
+    node.start()
     print("Server has been started")
 
-    subprocess.call(['python', 'Client.py', str(getIP), str(getPort)])
     while True:
         pass

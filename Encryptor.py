@@ -52,7 +52,7 @@ def chainInitialize(RSACipher, cipherText, IV, tag, count):
     encKey = key[:len(key)/2]
     hMacKey = key[len(key)/2:]
 
-    newCipher, newIV, newTag, newEnc, newHMac = chainEncryption(cipherText, tag, encKey[:32], hMacKey[:32)
+    newCipher, newIV, newTag, newEnc, newHMac = chainEncryption(cipherText, tag, encKey[:32], hMacKey[:32])
 
     combEncKey = newEnc + encKey
     combHMacKey = newHMac + hMacKey

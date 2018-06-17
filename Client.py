@@ -8,6 +8,7 @@ import threading
 import time
 import json
 import constant
+import subprocess
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import asymmetric, serialization
@@ -104,20 +105,27 @@ def prompt(chord):
             chord.download(fileName)
 
 if __name__ == "__main__":
+    getIP = input("IP:")
+    getPort = int(input("Port:"))
+    IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
-    IPGet = sys.argv[1] + ":" + sys.argv[2]
     m.update(IPGet.encode('utf-8'))
     guid = int(m.hexdigest(), 16)
-    ctypes.windll.kernel32.SetConsoleTitleW(sys.argv[1] +":"+ sys.argv[2] + " (" + str(guid) + ")")
+#    subprocess.call(['python', 'Server.py', str(getIP), str(getPort)])
+    surver = subprocess.Popen(['python', 'Server.py', str(getIP), str(getPort)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+#    output, err = surver.communicate()
+    print("Sleep")
+    time.sleep(5)
+
+    print("finish sleeping")
+    with Pyro4.locateNS(host=getIP, port=getPort-1) as ns:
+        for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+            chord = Pyro4.Proxy(guidURI)
+                        
+    ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
     time.sleep(1)
 
-    with Pyro4.locateNS(host=sys.argv[1], port=int(sys.argv[2])-1) as ns:
-        print(guid)
-        for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-            print("test")
-            chord = Pyro4.Proxy(guidURI)
-            time.sleep(5)
-
+    
     while True:
          prompt(chord)
          if chord.successor != chord.guid:

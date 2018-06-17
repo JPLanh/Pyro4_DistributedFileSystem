@@ -14,7 +14,7 @@ from base64 import b64encode, b64decode
 
 @Pyro4.expose
 class Chord(object):
-    def __init__(self, ip, port, guid, server):
+    def __init__(self, ip, port, guid):
         self.M = 3
         self._ip = ip
         self._port = port
@@ -27,9 +27,8 @@ class Chord(object):
             self.finger.append(None)
         print("Loging in as %s:%s" %(ip, port))
         print("Guid: %s" %(guid))
-        if server:
-            thread1 = looping(self)
-            thread1.start()
+        thread1 = looping(self)
+        thread1.start()
 
     @property
     def ip(self):
