@@ -10,6 +10,7 @@ import constant
 import Encryptor
 import Decryptor
 import time
+from datetime import datetime
 from base64 import b64encode, b64decode
 
 @Pyro4.expose
@@ -171,6 +172,8 @@ class Chord(object):
         print("ping ring: %s (%s)" %(count, self.guid))
         if self.guid != initial.guid:
             return self._successor.ringAround(initial, count+1)
+        elif self.guid != self._successor:
+            return 1
         else:
             return count            
         
@@ -231,11 +234,13 @@ class Chord(object):
                     newPage["Guid"] = int(m.hexdigest(), 16)
                     chordGet = self.locateSuccessor(newPage["Guid"])
                     if (len(data)-byteRead) > pageSize:
+                      self.logger("Encrypt 1")
                       RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:(byteRead+pageSize)])
                       newPage["Size"] = pageSize
                       byteRead += pageSize
                       x['File Size'] += pageSize
                     else:
+                      self.logger("Encrypt 1")
                       RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:len(data)])
                       newPage["Size"] = len(data)-byteRead
                       byteRead += len(data)-byteRead
@@ -243,14 +248,17 @@ class Chord(object):
                     newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
                     newPage["IV"] = b64encode(IV).decode('utf-8')
                     newPage["Tag"] = b64encode(tag).decode('utf-8')
+                    self.logger("Flag 1")
                     chordGet.createPage(cipherText, newPage["Guid"])
+                    self.logger("Flag 2")
                     x['Pages'].append(newPage)
+                    self.logger("Flag 3")
                     count = count + 1                    
                 self.writeMetaData(metadata)
                 break
             
     def createPage(self, getMessage, getGuid):
-        f = open(self._guid + "\\repository\\" + getGuid, 'wb')
+        f = open(str(self._guid) + "\\repository\\" + str(getGuid), 'wb+')
         f.write(getMessage)
         f.close()
 
@@ -300,6 +308,14 @@ class Chord(object):
             return count
         else:
             return self.findBinary(getSize/2, count+1)
+
+    def logger(self, data):
+        try:
+            f = open("Logger.txt", 'a+')
+        except:
+            f = open("Logger.txt", 'w+')
+        f.write("[" + str(datetime.now()) + "] " + data + "\n")
+        f.close()
 
 class looping(threading.Thread):
     def __init__(self, chord):
