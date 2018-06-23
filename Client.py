@@ -52,10 +52,9 @@ def register():
     f = open(constant.USB_DIR+str(int(m.hexdigest(), 16)), 'w')
     json.dump(metaData, f)
     f.close()
-        
-  
+      
 def prompt(chord):
-    print("\n\n")
+    os.system('cls')
     print('{:#^50}'.format(""))           
     print('{:^50}'.format("Distributed File System"))            
     print('{:#^50}'.format(""))
@@ -89,8 +88,13 @@ def prompt(chord):
  #           try:
             File = os.path.isfile(fileName)
             chord.newFile(fileName)
-            print(fileName)
-            chord.append(fileName)
+            progress = 0
+            count = 0
+            while progress < 100:
+                os.system('cls')
+                print("Uploading, please wait: %s " %progress)
+                progress = chord.appendTwo(fileName)
+#            chord.append(fileName)
  #           except:
 #                print("File does not exist")
         elif choiceSplit[0].lower() == "join":
