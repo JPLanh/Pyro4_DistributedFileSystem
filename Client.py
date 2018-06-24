@@ -8,6 +8,7 @@ import threading
 import time
 import json
 import constant
+import subprocess
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import asymmetric, serialization
@@ -51,10 +52,9 @@ def register():
     f = open(constant.USB_DIR+str(int(m.hexdigest(), 16)), 'w')
     json.dump(metaData, f)
     f.close()
-        
-  
+      
 def prompt(chord):
-    print("\n\n")
+    os.system('cls')
     print('{:#^50}'.format(""))           
     print('{:^50}'.format("Distributed File System"))            
     print('{:#^50}'.format(""))
@@ -79,23 +79,29 @@ def prompt(chord):
         elif choiceSplit[0].lower() == "finger":
             chord.printFinger()
         elif choiceSplit[0].lower() == "sap":
-            chord.simplePrint()
+            print(chord.simplePrint())
         elif choiceSplit[0].lower() == "reg":
             register()
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
-            try:
-                File = os.path.isfile(fileName)
-                chord.newFile(fileName)
-                chord.append(fileName)
-            except:
-                print("File does not exist")
+ #           try:
+            File = os.path.isfile(fileName)
+            chord.newFile(fileName)
+            progress = 0
+            count = 0
+            while progress < 100:
+                os.system('cls')
+                print("Uploading, please wait: %s " %progress)
+                progress = chord.appendTwo(fileName)
+#            chord.append(fileName)
+ #           except:
+#                print("File does not exist")
         elif choiceSplit[0].lower() == "join":
             m = hashlib.md5()
             IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
             m.update(IPGet.encode('utf-8'))  
-            print(chord.joinRing(IPGet, int(m.hexdigest(), 16)))
+            print(chord.joinRing(choiceSplit[1], str(choiceSplit[2]), int(m.hexdigest(), 16)))
         elif choiceSplit[0].lower() == "del":
             fileName = getChoice[4:]
             chord.delete(fileName)
@@ -104,20 +110,29 @@ def prompt(chord):
             chord.download(fileName)
 
 if __name__ == "__main__":
+#    getIP = input("IP:")
+#    getPort = int(input("Port:"))
+    getIP = "KENGPENG-PC"
+    getPort = 23245
+    IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
-    IPGet = sys.argv[1] + ":" + sys.argv[2]
     m.update(IPGet.encode('utf-8'))
     guid = int(m.hexdigest(), 16)
-    ctypes.windll.kernel32.SetConsoleTitleW(sys.argv[1] +":"+ sys.argv[2] + " (" + str(guid) + ")")
+#    subprocess.call(['python', 'Server.py', str(getIP), str(getPort)])
+    surver = subprocess.Popen(['python', 'Server.py', str(getIP), str(getPort)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+#    output, err = surver.communicate()
+    print("Sleep")
+    time.sleep(5)
+
+    print("finish sleeping")
+    with Pyro4.locateNS(host=getIP, port=getPort-1) as ns:
+        for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+            chord = Pyro4.Proxy(guidURI)
+                        
+    ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
     time.sleep(1)
 
-    with Pyro4.locateNS(host=sys.argv[1], port=int(sys.argv[2])-1) as ns:
-        print(guid)
-        for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-            print("test")
-            chord = Pyro4.Proxy(guidURI)
-            time.sleep(5)
-
+    
     while True:
          prompt(chord)
          if chord.successor != chord.guid:
