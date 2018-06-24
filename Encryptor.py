@@ -33,10 +33,8 @@ def chainEncryption(message, tag, encKey, hMacKey):
         Logger.log("Flag 4.4")
         checkTag.verify(tag)
         Logger.log("Flag 4.5")
-        newEncKey = os.urandom(constant.KEY_BYTE_SIZE)
-        newHMacKey = os.urandom(constant.KEY_BYTE_SIZE)
-        cipherText, newIV, newHTag = dataEncrypt(message, newEncKey, newHMacKey)
-        return cipherText, newIV, newHTag, newEncKey, hMacKey
+        cipherText, newIV, newHTag = dataEncrypt(message, encKey, hMacKey)
+        return cipherText, newIV, newHTag
     except InvalidSignature:
         Logger.log("Failed")
         return None
@@ -71,37 +69,15 @@ def encryptChaining(RSACipher, cipherText, IV, tag, count):
     hMacKey = key[mid:]
 
     Logger.log("Flag 4")
-    Logger.log(str(cipherText))
-    newCipher, newIV, newTag, newEnc, newHMac = chainEncryption(cipherText, tag, encKey[:32], hMacKey[:32])
-    Logger.log(str(newCipher))
+    newCipher, newIV, newTag = chainEncryption(cipherText, tag, encKey[:32], hMacKey[:32])
     Logger.log("Flag 5")
 
-    combEncKey = newEnc + encKey
-    combHMacKey = newHMac + hMacKey
     combIV = newIV + IV
 
-    if newCipher != None:
-        Logger.log("Flag 6")
-        f=open(constant.PUBLIC_PEM, 'rb')
-        public_key = serialization.load_pem_public_key(
-            f.read(),
-            backend=default_backend()
-        )
-
-        RSACipher = public_key.encrypt(
-            combEncKey+combHMacKey,
-            asymmetric.padding.OAEP(
-                mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-                )
-            )
-
-    
     Logger.log("Flag 7")
     if count == constant.MAX_CHAIN_ENCRYPTION:        
         Logger.log("Flag 8")
-        return RSACipher, newCipher, combIV, combTag
+        return RSACipher, newCipher, combIV, newTag
     else:
         Logger.log("Flag 9")
         return encryptChaining(RSACipher, newCipher, combIV, newTag, count + 1)
