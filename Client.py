@@ -110,8 +110,10 @@ def prompt(chord):
             chord.download(fileName)
 
 if __name__ == "__main__":
-    getIP = input("IP:")
-    getPort = int(input("Port:"))
+#    getIP = input("IP:")
+#    getPort = int(input("Port:"))
+    getIP = "KYOICHI"
+    getPort = 23245
     IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
     m.update(IPGet.encode('utf-8'))

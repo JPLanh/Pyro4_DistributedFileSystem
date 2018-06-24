@@ -22,7 +22,7 @@ def dataDecrypt(cipherText, IV, encKey, hMacKey, tag):
         return plainText
     except InvalidSignature:
         return None
-
+    
 def initialize(RSACipher, cipherText, IV, tag):
     f=open(constant.PRIVATE_PEM, 'rb')
     private_key = serialization.load_pem_private_key(
@@ -42,6 +42,7 @@ def initialize(RSACipher, cipherText, IV, tag):
 
     encKey = key[:32]
     hMacKey = key[32:]
-    plainText = dataDecrypt(cipherText, IV, encKey, hMacKey, tag)
+    IVSend = IV
+    plainText = dataDecrypt(cipherText, IVSend, encKey, hMacKey, tag)
     if plainText != None:
         return plainText

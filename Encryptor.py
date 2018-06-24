@@ -6,6 +6,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.primitives import serialization, hashes, hmac, asymmetric, padding
 from cryptography.exceptions import InvalidSignature
+import hashlib
 import Logger
 
 def dataEncrypt(message, encKey, hMacKey):
@@ -41,33 +42,34 @@ def chainEncryption(message, tag, encKey, hMacKey):
         Logger.log("Failed")
         return None
 
-def chainInitialize(message):
-    encryptionSet = []
-    Logger.log("Flag 1")
-    RSACipher, cipherText, IV, tag = initialize(message)
-    newSet = {}
-    newSet["Set"] = 0
-    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-    newSet["IV"] = b64encode(IV).decode('utf-8')
-    newSet["Tag"] = b64encode(tag).decode('utf-8')
-    encryptionSet.append(newSet)
-    Logger.log("Flag 2")    
-    return encryptChaining(cipherText, encryptionSet, 1)
+##def chainInitialize(message, fileName, chord):
+##    encryptionSet = []
+##    Logger.log("Flag 1")
+##    RSACipher, cipherText, IV, tag = initialize(message)
+##    newSet = {}
+##    newSet["Set"] = 0
+##    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+##    newSet["IV"] = b64encode(IV).decode('utf-8')
+##    newSet["Tag"] = b64encode(tag).decode('utf-8')
+##    encryptionSet.append(newSet)
+##    m = hashlib.md5()
+##    m.update((fileName + "0").encode('utf-8'))
+##    chord.locateSuccessor(str(int(m.hexdigest(), 16)))
+##    Logger.log("Flag 2")    
+##    return encryptChaining(cipherText, encryptionSet, 1)
     
-def encryptChaining(cipherText, RSASet, count):
+#def encryptChaining(RSACipher, cipherText, IV, tag, count):
+def chainInitialize(RSACipher, cipherText, IV, tag):
+    Logger.log("Flag 1.8.1")
     f=open(constant.PRIVATE_PEM, 'rb')
     private_key = serialization.load_pem_private_key(
         f.read(),
         password=None,
         backend=default_backend()
     )
+    Logger.log("Flag 1.8.2")
 
     f.close()
- 
-    for x in RSASet:
-        if x["Set"] == count - 1:
-             RSACipher = b64decode(x["RSACipher"])
-             tag = b64decode(x["Tag"])
              
     key = private_key.decrypt(
         RSACipher,
@@ -77,12 +79,15 @@ def encryptChaining(cipherText, RSASet, count):
             label=None
         )
     )
+    Logger.log("Flag 1.8.3")
     
     encKey = key[:32]
     hMacKey = key[32:]
     
+    Logger.log("Flag 1.8.4")
     newCipher, newIV, newTag, newEncKey, newHMacKey = chainEncryption(cipherText, tag, encKey, hMacKey)
 
+    Logger.log("Flag 1.8.5")
     f=open(constant.PUBLIC_PEM, 'rb')
     public_key = serialization.load_pem_public_key(
         f.read(),
@@ -91,6 +96,7 @@ def encryptChaining(cipherText, RSASet, count):
 
     f.close()
 
+    Logger.log("Flag 1.8.6")
     RSACipher = public_key.encrypt(
         newEncKey+newHMacKey,
         asymmetric.padding.OAEP(
@@ -99,21 +105,25 @@ def encryptChaining(cipherText, RSASet, count):
             label=None
             )
         )
-    Logger.log("Flag 5")
-    newSet = {}
-    newSet["Set"] = count
-    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-    newSet["IV"] = b64encode(newIV).decode('utf-8')
-    newSet["Tag"] = b64encode(newTag).decode('utf-8')
-    RSASet.append(newSet)
-    Logger.log("Flag 6")
     
-    if count == constant.MAX_CHAIN_ENCRYPTION: 
-        Logger.log("Flag 8")       
-        return newCipher, RSASet
-    else:
-        Logger.log("Flag 7")
-        return encryptChaining(newCipher, RSASet, count + 1)
+    Logger.log("Flag 1.8.7")
+
+    return RSACipher, cipherText, newIV, newTag
+##    Logger.log("Flag 5")
+##    newSet = {}
+##    newSet["Set"] = count
+##    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+##    newSet["IV"] = b64encode(newIV).decode('utf-8')
+##    newSet["Tag"] = b64encode(newTag).decode('utf-8')
+##    RSASet.append(newSet)
+##    Logger.log("Flag 6")
+##    
+##    if count == constant.MAX_CHAIN_ENCRYPTION: 
+##        Logger.log("Flag 8")       
+##        return newCipher, RSASet
+##    else:
+##        Logger.log("Flag 7")
+##        return encryptChaining(newCipher, RSASet, count + 1)
    
 
 def initialize(message):
