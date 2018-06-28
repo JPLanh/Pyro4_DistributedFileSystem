@@ -11,6 +11,10 @@ import Encryptor
 import Decryptor
 import time
 import Logger
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.padding import PKCS7
+from cryptography.hazmat.primitives import serialization, hashes, hmac, asymmetric, padding
 from base64 import b64encode, b64decode
 
 @Pyro4.expose
@@ -24,7 +28,7 @@ class Chord(object):
         self._predecessor = None
         self.finger = []
         self.nextFinger = 0
-        keychain = []
+        self.keychain = []
         for i in range(0, self.M+1):
             self.finger.append(None)
         print("Loging in as %s:%s" %(ip, port))
@@ -59,31 +63,66 @@ class Chord(object):
     def joinRing(self, getIp, getPort, guid):
         with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
             for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+                Logger.log(str(self._guid) + ": Joining Ring")
                 chordGet = Pyro4.Proxy(guidURI)
                 self._predecessor = None
-                self._successor = chordGet.locateSuccessor(self._guid)
+                self._successor = chordGet.locateSuccessor(self._guid)                
+                self.stabilize()
+                self.fixFinger()
+                self.checkPredecessor()
+                self._successor.stabilize()
+                self._successor.fixFinger()
+                self._successor.checkPredecessor()
                 self.exchangeKey(self, self._successor)
                 return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
 
-    def exchangeKey(self, currentChord, nextChord):
-        f=open(constant.PRIVATE_PEM, 'rb')
-        private_key = serialization.load_pem_private_key(
-            f.read(),
-            password=None,
-            backend=default_backend()
-        )
-        f.close()
-        nextChord.addKey(self._guid, private_key)
-        
-        if currentChord.guid != nextChord.guid:
-            return self.exchangeKey(currentChord, self._successor)
-            
-    def addKey(self, chordGuid, key):
+    def exchangeKey(self, currentChord, nextChord, exchanged = False):
+        Logger.log("Keychain: Flag 1")
+        if not nextChord.hasKey(currentChord):
+            Logger.log("This guid is: " + str(self._guid))
+            Logger.log("Current guid is: " + str(currentChord.guid))
+            Logger.log("Next guid is: " + str(nextChord.guid))
+            f=open(constant.PRIVATE_PEM, 'rb')
+            private_key = serialization.load_pem_private_key(
+                f.read(),
+                password=None,
+                backend=default_backend()
+            )
+            privPem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption()
+            )
+            f.close()
+            nextChord.addKey(currentChord, privPem)
+            if not exchanged:                
+                nextChord.exchangeKey(nextChord, currentChord, True)
+                if currentChord.guid != nextChord.successor.guid:
+                    return nextChord.exchangeKey(currentChord, nextChord.successor)
+
+    def hasKey(self, chordGet):
+        for x in self.keychain:
+            if x["Chord"] == chordGet.guid:
+                return True
+        return False
+    
+    def addKey(self, chordGet, keyGet):
+        Logger.log(str(self._guid) + " is adding " + str(chordGet.guid))
         key = {}
-        key["Chord"] = chordGuid
-        key["Key"] = key
-        keychain.append(key)
-        
+        key["Chord"] = chordGet.guid
+        key["Key"] = keyGet
+        Logger.log("Flag 4")
+        self.keychain.append(key)
+
+    def keyPrint(self):
+        Logger.log(str(self._guid) + " Keys")
+        for x in self.keychain:
+            Logger.log(str(x))        
+##        for x in self.keychain:
+##            Logger.log(str(x))
+##        if self.guid != chord.guid:
+##            return self.successor.keyPrint(chord)
+
     def stabilize(self):
         if self._successor != None:
             try:

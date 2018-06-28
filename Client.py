@@ -74,6 +74,8 @@ def prompt(chord):
           array = chord.ls()
           for x in array:
               print(x)
+        elif choiceSplit[0].lower() == "key":
+            chord.keyPrint()
         elif choiceSplit[0].lower() == "ring":
             chord.successor.ringAround(chord, 0)
         elif choiceSplit[0].lower() == "finger":
@@ -108,12 +110,13 @@ def prompt(chord):
         elif choiceSplit[0].lower() == "down":
             fileName = getChoice[5:]
             chord.download(fileName)
+    input("Press enter to continue")
 
 if __name__ == "__main__":
 #    getIP = input("IP:")
 #    getPort = int(input("Port:"))
-    getIP = "KYOICHI"
-    getPort = 23245
+    getIP = "KENGPENG-PC"
+    getPort = 23255
     IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
     m.update(IPGet.encode('utf-8'))
