@@ -73,17 +73,17 @@ def prompt(chord):
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
             try:
-            File = os.path.isfile(fileName)
-            chord.newFile(fileName)
-            progress = 0
-            count = 0
-            while progress < 100:
-                os.system('cls')
-                print("Uploading, please wait: %s " %progress)
-                progress = chord.appendTwo(fileName)
-            chord.append(fileName)
-            except:
-                print("File does not exist")
+                File = os.path.isfile(fileName)
+                chord.newFile(fileName)
+                progress = 0
+                count = 0
+                while progress < 100:
+                    os.system('cls')
+                    print("Uploading, please wait: %s " %progress)
+                    progress = chord.appendTwo(fileName)
+                chord.append(fileName)
+            except Exception as e:
+                print(e)
         elif choiceSplit[0].lower() == "join":
             if len(choiceSplit) == 3:
                 if (choiceSplit[1] == chord.ip) and (choiceSplit[2] == chord.port):
@@ -111,8 +111,10 @@ def prompt(chord):
     input("Press enter to continue")
 
 if __name__ == "__main__":
-    getIP = input("IP:")
-    getPort = int(input("Port:"))
+#    getIP = input("IP:")
+#    getPort = int(input("Port:"))
+    getIP = "KYOICHI"
+    getPort = 23245
     IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
     m.update(IPGet.encode('utf-8'))

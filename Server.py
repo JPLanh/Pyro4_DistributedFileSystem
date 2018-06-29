@@ -12,7 +12,12 @@ import sys
 import Logger
 from Chord import Chord
 import Client
-from base64 import b64decode
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.padding import PKCS7
+from cryptography.hazmat.primitives import serialization, hashes, hmac, asymmetric, padding
+from base64 import b64decode, b64encode
 
 class start_name_server(threading.Thread):
     def __init__(self, IP, port):
@@ -55,7 +60,24 @@ class start_server(threading.Thread):
                   f.close()
                   Logger.log("Server: Flag 7")                  
           Logger.log("Server: Flag 8")
-              
+
+          f = open(constant.CHORD_PRIV_PEM, 'rb')
+          private_key = serialization.load_pem_private_key(
+              f.read(),
+              password=None,
+              backend=default_backend()
+          )
+          Logger.log("Server: Flag 9")
+          f.close()
+          privPem = private_key.private_bytes(
+              encoding=serialization.Encoding.PEM,
+              format=serialization.PrivateFormat.TraditionalOpenSSL,
+              encryption_algorithm=serialization.NoEncryption()
+          )
+          Logger.log("Server: Flag 10")
+          self._chord.addKey(self._chord, b64encode(privPem).decode('UTF-8'))
+                              
+          Logger.log("Server: Flag 11")
           daemon.requestLoop()
             
 if __name__ == "__main__":

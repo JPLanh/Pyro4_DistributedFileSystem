@@ -42,9 +42,18 @@ def chainEncryption(message, tag, encKey, hMacKey):
         Logger.log("Failed")
         return None
     
-def chainInitialize(RSACipher, cipherText, IV, tag):
+def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
     Logger.log("Flag 1.8.1")
-    f=open(constant.PRIVATE_PEM, 'rb')
+#    f=open(constant.PRIVATE_PEM, 'rb')
+
+    f = open("./testKey", 'wb+')
+    Logger.log("Flag 1.8.1.1")
+    f.write(prevKey)
+    Logger.log("Flag 1.8.1.2")
+    f.close()
+    f = open("./testKey", 'rb')
+    
+
     private_key = serialization.load_pem_private_key(
         f.read(),
         password=None,
@@ -52,7 +61,8 @@ def chainInitialize(RSACipher, cipherText, IV, tag):
     )
     Logger.log("Flag 1.8.2")
 
-    f.close()
+#    f.close()
+    Logger.log(str(len(RSACipher)))
              
     key = private_key.decrypt(
         RSACipher,
@@ -71,7 +81,7 @@ def chainInitialize(RSACipher, cipherText, IV, tag):
     newCipher, newIV, newTag, newEncKey, newHMacKey = chainEncryption(cipherText, tag, encKey, hMacKey)
 
     Logger.log("Flag 1.8.5")
-    f=open(constant.PUBLIC_PEM, 'rb')
+    f=open(constant.CHORD_PUB_PEM, 'rb')
     public_key = serialization.load_pem_public_key(
         f.read(),
         backend=default_backend()
