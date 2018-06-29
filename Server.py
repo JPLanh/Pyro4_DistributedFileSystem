@@ -13,6 +13,7 @@ import Logger
 from Chord import Chord
 import Client
 from base64 import b64decode
+
 class start_name_server(threading.Thread):
     def __init__(self, IP, port):
       threading.Thread.__init__(self)
@@ -47,16 +48,11 @@ class start_server(threading.Thread):
                   Logger.log("Server: Flag 4")
                   privKey, pubKey = self._chord.createKeys()
                   f = open(constant.CHORD_PRIV_PEM, 'wb+')
-##                  try:
                   f.write(b64decode(privKey))
-##                  except Exception as e:
-##                      Logger.log(str(e))
                   f.close()                  
                   f = open(constant.CHORD_PUB_PEM, 'wb+')
                   f.write(b64decode(pubKey))
                   f.close()
-#                  os.rename(constant.TEMP_PRIV_PEM, constant.CHORD_PRIV_PEM)
-#                  os.rename(constant.TEMP_PUB_PEM, constant.CHORD_PUB_PEM)
                   Logger.log("Server: Flag 7")                  
           Logger.log("Server: Flag 8")
               

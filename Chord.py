@@ -32,8 +32,6 @@ class Chord(object):
         self.keychain = []
         for i in range(0, self.M+1):
             self.finger.append(None)
-        print("Loging in as %s:%s" %(ip, port))
-        print("Guid: %s" %(guid))
         thread1 = looping(self)
         thread1.start()
 
@@ -98,13 +96,6 @@ class Chord(object):
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
-          #IF creating and renaming is safer
-##        f = open(constant.TEMP_PRIV_PEM, 'wb+')
-##        f.write(privPem)
-##        f.close()
-##        f = open(constant.TEMP_PUB_PEM, 'wb+')
-##        f.write(pubPem)
-##        f.close()
         
         return b64encode(privPem).decode('UTF-8'), b64encode(pubPem).decode('UTF-8')
         
@@ -151,7 +142,6 @@ class Chord(object):
                 if x != None and x.guid != self._guid and self.inInterval("Close", x.guid, self._guid, self._successor.guid):
                     self._successor = x
                 if self._successor.guid != self._guid:
-#                    print("%s, %s" %(self._successor.guid, self._guid))
                     self._successor.notify(self)
             except:
                 x = self
@@ -177,7 +167,6 @@ class Chord(object):
     def checkPredecessor(self):
         try:
             if self._predecessor != None:
-                print(self._predecessor.guid)
                 if not self._predecessor.isAlive():
                     self._predecessor = None
         except:
@@ -469,9 +458,7 @@ class looping(threading.Thread):
 
     def run(self):
         while True:
-        #    print("before stab: %s" %self.chord.successor)
             self.chord.stabilize()
-         #   print("after stab: %s" %self.chord.successor)
             self.chord.fixFinger()
             self.chord.checkPredecessor()
             time.sleep(2)

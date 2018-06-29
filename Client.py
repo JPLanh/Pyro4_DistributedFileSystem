@@ -28,20 +28,7 @@ def register(chord):
     f = open(constant.PUBLIC_PEM, 'wb+')
     f.write(b64decode(pubKey))
     f.close()
-    
-    #Creating and renaming key method
-##    while not os.path.isfile(constant.TEMP_PRIV_PEM):
-##        pass
-##    if os.path.isfile(constant.PRIVATE_PEM):
-##        os.remove(constant.PRIVATE_PEM)
-##    os.rename(constant.TEMP_PRIV_PEM, constant.PRIVATE_PEM)
-##
-##    while not os.path.isfile(constant.TEMP_PUB_PEM):
-##        pass
-##    if os.path.isfile(constant.PUBLIC_PEM):
-##        os.remove(constant.PUBLIC_PEM)
-##    os.rename(constant.TEMP_PUB_PEM, constant.PUBLIC_PEM)
-    
+        
     metaData = {}
     fileList = []
     m = hashlib.md5()
@@ -85,7 +72,7 @@ def prompt(chord):
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
- #           try:
+            try:
             File = os.path.isfile(fileName)
             chord.newFile(fileName)
             progress = 0
@@ -94,9 +81,9 @@ def prompt(chord):
                 os.system('cls')
                 print("Uploading, please wait: %s " %progress)
                 progress = chord.appendTwo(fileName)
-#            chord.append(fileName)
- #           except:
-#                print("File does not exist")
+            chord.append(fileName)
+            except:
+                print("File does not exist")
         elif choiceSplit[0].lower() == "join":
             if len(choiceSplit) == 3:
                 if (choiceSplit[1] == chord.ip) and (choiceSplit[2] == chord.port):
@@ -145,7 +132,6 @@ if __name__ == "__main__":
             time.sleep(1)
 
     ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
-
     
     while True:
          prompt(chord)
