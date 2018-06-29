@@ -9,9 +9,10 @@ import json
 import constant
 import subprocess
 import sys
+import Logger
 from Chord import Chord
 import Client
-
+from base64 import b64decode
 class start_name_server(threading.Thread):
     def __init__(self, IP, port):
       threading.Thread.__init__(self)
@@ -34,15 +35,34 @@ class start_server(threading.Thread):
           directory = os.path.dirname(str(self._chord.guid)+"/repository/")
           m = hashlib.md5()
           m.update("MetaData".encode('utf-8'))
+          Logger.log("Server: Flag 1")
           if not os.path.exists(directory):
             os.makedirs(directory)
+          Logger.log("Server: Flag 2")
           with Pyro4.locateNS(host=self._ip, port= self._port-1) as ns:
             ns.register(str(self._chord.guid), chordURI)
-          print("Chord connected as: %s:%s" %(self._ip, self._port))
+          Logger.log("Server: Flag 3")
+          if not os.path.isfile(constant.CHORD_PRIV_PEM):
+              if not os.path.isfile(constant.CHORD_PUB_PEM):
+                  Logger.log("Server: Flag 4")
+                  privKey, pubKey = self._chord.createKeys()
+                  f = open(constant.CHORD_PRIV_PEM, 'wb+')
+##                  try:
+                  f.write(b64decode(privKey))
+##                  except Exception as e:
+##                      Logger.log(str(e))
+                  f.close()                  
+                  f = open(constant.CHORD_PUB_PEM, 'wb+')
+                  f.write(b64decode(pubKey))
+                  f.close()
+#                  os.rename(constant.TEMP_PRIV_PEM, constant.CHORD_PRIV_PEM)
+#                  os.rename(constant.TEMP_PUB_PEM, constant.CHORD_PUB_PEM)
+                  Logger.log("Server: Flag 7")                  
+          Logger.log("Server: Flag 8")
+              
           daemon.requestLoop()
             
 if __name__ == "__main__":
-    #try:
     m = hashlib.md5()
     IPGet = sys.argv[1] + ":" + sys.argv[2]
     m.update(IPGet.encode('utf-8'))
@@ -52,17 +72,14 @@ if __name__ == "__main__":
 
     try:
         Pyro4.locateNS(host=sys.argv[1], port =int(sys.argv[2]))
-        print("Server has already been started")
     except:
         nameServer = start_name_server(sys.argv[1], int(sys.argv[2]))
-        print("Server hasn't been started")
         
     nameServer.start()
     time.sleep(2)
 
     node = start_server(sys.argv[1], int(sys.argv[2]), chord)
     node.start()
-    print("Server has been started")
 
     while True:
         pass

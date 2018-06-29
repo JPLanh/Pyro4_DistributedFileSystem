@@ -41,24 +41,7 @@ def chainEncryption(message, tag, encKey, hMacKey):
     except InvalidSignature:
         Logger.log("Failed")
         return None
-
-##def chainInitialize(message, fileName, chord):
-##    encryptionSet = []
-##    Logger.log("Flag 1")
-##    RSACipher, cipherText, IV, tag = initialize(message)
-##    newSet = {}
-##    newSet["Set"] = 0
-##    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-##    newSet["IV"] = b64encode(IV).decode('utf-8')
-##    newSet["Tag"] = b64encode(tag).decode('utf-8')
-##    encryptionSet.append(newSet)
-##    m = hashlib.md5()
-##    m.update((fileName + "0").encode('utf-8'))
-##    chord.locateSuccessor(str(int(m.hexdigest(), 16)))
-##    Logger.log("Flag 2")    
-##    return encryptChaining(cipherText, encryptionSet, 1)
     
-#def encryptChaining(RSACipher, cipherText, IV, tag, count):
 def chainInitialize(RSACipher, cipherText, IV, tag):
     Logger.log("Flag 1.8.1")
     f=open(constant.PRIVATE_PEM, 'rb')
@@ -108,23 +91,7 @@ def chainInitialize(RSACipher, cipherText, IV, tag):
     
     Logger.log("Flag 1.8.7")
 
-    return RSACipher, cipherText, newIV, newTag
-##    Logger.log("Flag 5")
-##    newSet = {}
-##    newSet["Set"] = count
-##    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-##    newSet["IV"] = b64encode(newIV).decode('utf-8')
-##    newSet["Tag"] = b64encode(newTag).decode('utf-8')
-##    RSASet.append(newSet)
-##    Logger.log("Flag 6")
-##    
-##    if count == constant.MAX_CHAIN_ENCRYPTION: 
-##        Logger.log("Flag 8")       
-##        return newCipher, RSASet
-##    else:
-##        Logger.log("Flag 7")
-##        return encryptChaining(newCipher, RSASet, count + 1)
-   
+    return RSACipher, cipherText, newIV, newTag   
 
 def initialize(message):
     encKey = os.urandom(constant.KEY_BYTE_SIZE)

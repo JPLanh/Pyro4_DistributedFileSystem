@@ -13,36 +13,34 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import asymmetric, serialization
 from Chord import Chord
+from base64 import b64encode, b64decode
 
-def register():
-    privateKey = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
+def register(chord):
+    privKey, pubKey = chord.createKeys()
 
-    privPem = privateKey.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-
-    pubKey = privateKey.public_key()
-    pubPem = pubKey.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    
     if not os.path.exists(constant.USB_DIR):
      os.makedirs(constant.USB_DIR)
-     
-    privateWrite = open(constant.PRIVATE_PEM, 'wb')
-    privateWrite.write(privPem)
-    privateWrite.close()
-    publicWrite = open(constant.PUBLIC_PEM, 'wb')
-    publicWrite.write(pubPem)
-    publicWrite.close()
 
+    f = open(constant.PRIVATE_PEM, 'wb+')
+    f.write(b64decode(privKey))
+    f.close()
+
+    f = open(constant.PUBLIC_PEM, 'wb+')
+    f.write(b64decode(pubKey))
+    f.close()
+    
+    #Creating and renaming key method
+##    while not os.path.isfile(constant.TEMP_PRIV_PEM):
+##        pass
+##    if os.path.isfile(constant.PRIVATE_PEM):
+##        os.remove(constant.PRIVATE_PEM)
+##    os.rename(constant.TEMP_PRIV_PEM, constant.PRIVATE_PEM)
+##
+##    while not os.path.isfile(constant.TEMP_PUB_PEM):
+##        pass
+##    if os.path.isfile(constant.PUBLIC_PEM):
+##        os.remove(constant.PUBLIC_PEM)
+##    os.rename(constant.TEMP_PUB_PEM, constant.PUBLIC_PEM)
     
     metaData = {}
     fileList = []
@@ -83,7 +81,7 @@ def prompt(chord):
         elif choiceSplit[0].lower() == "sap":
             print(chord.simplePrint())
         elif choiceSplit[0].lower() == "reg":
-            register()
+            register(chord)
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
@@ -100,40 +98,53 @@ def prompt(chord):
  #           except:
 #                print("File does not exist")
         elif choiceSplit[0].lower() == "join":
-            m = hashlib.md5()
-            IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
-            m.update(IPGet.encode('utf-8'))  
-            print(chord.joinRing(choiceSplit[1], str(choiceSplit[2]), int(m.hexdigest(), 16)))
+            if len(choiceSplit) == 3:
+                if (choiceSplit[1] == chord.ip) and (choiceSplit[2] == chord.port):
+                    print("Unable to join the same chord")
+                else:
+                    try:
+                        m = hashlib.md5()
+                        IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
+                        m.update(IPGet.encode('utf-8'))
+                        try:
+                            print(chord.joinRing(choiceSplit[1], str(choiceSplit[2]), int(m.hexdigest(), 16)))
+                        except Pyro4.errors.NamingError:
+                            print("Unable to locate server")
+                    except:
+                        print("Port must be a number")
+            else:
+                print("Unable to locate server")
         elif choiceSplit[0].lower() == "del":
             fileName = getChoice[4:]
             chord.delete(fileName)
         elif choiceSplit[0].lower() == "down":
             fileName = getChoice[5:]
             chord.download(fileName)
+            print(" ")
     input("Press enter to continue")
 
 if __name__ == "__main__":
-#    getIP = input("IP:")
-#    getPort = int(input("Port:"))
-    getIP = "KENGPENG-PC"
-    getPort = 23255
+    getIP = input("IP:")
+    getPort = int(input("Port:"))
     IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
     m.update(IPGet.encode('utf-8'))
     guid = int(m.hexdigest(), 16)
-#    subprocess.call(['python', 'Server.py', str(getIP), str(getPort)])
     surver = subprocess.Popen(['python', 'Server.py', str(getIP), str(getPort)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#    output, err = surver.communicate()
-    print("Sleep")
-    time.sleep(5)
+    
+    while not ('chord' in locals()):
+        os.system("cls")
+        print("Connecting ")
+        time.sleep(1)
+        try:
+            with Pyro4.locateNS(host=getIP, port=getPort-1) as ns:
+                for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+                    chord = Pyro4.Proxy(guidURI)
+        except Pyro4.errors.NamingError:
+            print("Error finding a nameSpace, retrying")
+            time.sleep(1)
 
-    print("finish sleeping")
-    with Pyro4.locateNS(host=getIP, port=getPort-1) as ns:
-        for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-            chord = Pyro4.Proxy(guidURI)
-                        
     ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
-    time.sleep(1)
 
     
     while True:

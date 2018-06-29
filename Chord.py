@@ -11,6 +11,7 @@ import Encryptor
 import Decryptor
 import time
 import Logger
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.padding import PKCS7
@@ -76,13 +77,40 @@ class Chord(object):
                 self.exchangeKey(self, self._successor)
                 return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
 
+    def createKeys(self):
+        Logger.log("Key: Flag 1")
+        privateKey = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+
+        Logger.log("Key: Flag 2")
+        privPem = privateKey.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        ) 
+
+        Logger.log("Key: Flag 3")
+        pubKey = privateKey.public_key()
+        pubPem = pubKey.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+          #IF creating and renaming is safer
+##        f = open(constant.TEMP_PRIV_PEM, 'wb+')
+##        f.write(privPem)
+##        f.close()
+##        f = open(constant.TEMP_PUB_PEM, 'wb+')
+##        f.write(pubPem)
+##        f.close()
+        
+        return b64encode(privPem).decode('UTF-8'), b64encode(pubPem).decode('UTF-8')
+        
     def exchangeKey(self, currentChord, nextChord, exchanged = False):
-        Logger.log("Keychain: Flag 1")
         if not nextChord.hasKey(currentChord):
-            Logger.log("This guid is: " + str(self._guid))
-            Logger.log("Current guid is: " + str(currentChord.guid))
-            Logger.log("Next guid is: " + str(nextChord.guid))
-            f=open(constant.PRIVATE_PEM, 'rb')
+            f=open(constant.CHORD_PRIV_PEM, 'rb')
             private_key = serialization.load_pem_private_key(
                 f.read(),
                 password=None,
@@ -94,7 +122,7 @@ class Chord(object):
                 encryption_algorithm=serialization.NoEncryption()
             )
             f.close()
-            nextChord.addKey(currentChord, privPem)
+            nextChord.addKey(currentChord, b64encode(privPem).decode('UTF-8'))
             if not exchanged:                
                 nextChord.exchangeKey(nextChord, currentChord, True)
                 if currentChord.guid != nextChord.successor.guid:
@@ -107,21 +135,14 @@ class Chord(object):
         return False
     
     def addKey(self, chordGet, keyGet):
-        Logger.log(str(self._guid) + " is adding " + str(chordGet.guid))
         key = {}
         key["Chord"] = chordGet.guid
-        key["Key"] = keyGet
-        Logger.log("Flag 4")
+        key["Key"] = b64decode(keyGet)
         self.keychain.append(key)
 
     def keyPrint(self):
-        Logger.log(str(self._guid) + " Keys")
         for x in self.keychain:
             Logger.log(str(x))        
-##        for x in self.keychain:
-##            Logger.log(str(x))
-##        if self.guid != chord.guid:
-##            return self.successor.keyPrint(chord)
 
     def stabilize(self):
         if self._successor != None:
@@ -142,8 +163,7 @@ class Chord(object):
         else:
             if self.inInterval("Close", chord.guid, self._predecessor.guid, self._guid):
                 self._predecessor = chord
-                
-            
+                            
     def fixFinger(self):
         self.nextFinger = (self.nextFinger + 1)
         if self.nextFinger > self.M:
@@ -229,7 +249,6 @@ class Chord(object):
         f.close()
 
     def ringAround(self, initial, count):
-        print("ping ring: %s (%s)" %(count, self.guid))
         if self.guid != initial.guid:
             return self._successor.ringAround(initial, count+1)
         elif self.guid != self._successor:
