@@ -76,21 +76,18 @@ class Chord(object):
                 return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
 
     def createKeys(self):
-        Logger.log("Key: Flag 1")
         privateKey = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
             backend=default_backend()
         )
 
-        Logger.log("Key: Flag 2")
         privPem = privateKey.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption()
         ) 
 
-        Logger.log("Key: Flag 3")
         pubKey = privateKey.public_key()
         pubPem = pubKey.public_bytes(
             encoding=serialization.Encoding.PEM,
@@ -127,12 +124,9 @@ class Chord(object):
     
     def addKey(self, chordGet, keyGet):
         key = {}
-        Logger.log("Adding Key: Flag 1")
         key["Chord"] = chordGet.guid
         key["Key"] = b64decode(keyGet)
-        Logger.log("Adding Key: Flag 2")
         self.keychain.append(key)
-        Logger.log("Adding Key: Flag 3")
 
     def keyPrint(self):
         for x in self.keychain:
@@ -280,26 +274,22 @@ class Chord(object):
                         self.chainEncrypt(data[byteRead:len(data)], 0, chainEncryption)
 
     def chainEncrypt(self, fileName, data, count, chainEncryption, prevKey = None):
+        Logger.log("Encryption: Start")
         if count == constant.MAX_CHAIN_ENCRYPTION:
-            return chainEncryption
+            Logger.log("Encryption: Flag 4")
+            return data, chainEncryption
         elif count == 0:
-            Logger.log("Flag 1.1")
+            Logger.log("Encrpytion: Flag 1")
             newSet = {}
             RSACipher, cipherText, IV, tag = Encryptor.initialize(data)
             newSet["Set"] = count
             newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
             newSet["IV"] = b64encode(IV).decode('utf-8')
             newSet["Tag"] = b64encode(tag).decode('utf-8')
-            Logger.log("Flag 1.2")
             chainEncryption.append(newSet)
-            Logger.log("Flag 1.3")
             m = hashlib.md5()
-            Logger.log("Flag 1.4")
             m.update((fileName + str(count)).encode('utf-8'))
-            Logger.log("Flag 1.5")
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
-            Logger.log("Flag 1.6")
-
 
             f=open(constant.PRIVATE_PEM, 'rb')
             private_key = serialization.load_pem_private_key(
@@ -314,34 +304,32 @@ class Chord(object):
             )
             return getChord.chainEncrypt(fileName, b64encode(cipherText).decode('utf-8'), count + 1, chainEncryption, b64encode(privPem).decode('utf-8'))
         else:
-            Logger.log("Flag 1.7")
+            Logger.log("Encryption: Flag 2")
             newSet = {}
             getKey = None
             if count == 1:
+                Logger.log("Encryption: Flag 2.1")
                 for x in chainEncryption:
                     if x["Set"] == count-1:
                         RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(prevKey))
             else:                
+                Logger.log("Encryption: Flag 2.2")
                 for y in self.keychain:
                     if y["Chord"] == prevKey:
                         for x in chainEncryption:
                             if x["Set"] == count-1:
-                                Logger.log("Flag 1.8")
                                 RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
-            Logger.log("Flag 1.9")
             newSet["Set"] = count
-            newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-            newSet["IV"] = b64encode(IV).decode('utf-8')
-            newSet["Tag"] = b64encode(tag).decode('utf-8')
-            Logger.log("Flag 1.10")
+            newSet["RSACipher"] = RSACipher
+            newSet["IV"] = IV
+            newSet["Tag"] = tag
+##            newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+##            newSet["IV"] = b64encode(IV).decode('utf-8')
+##            newSet["Tag"] = b64encode(tag).decode('utf-8')
             chainEncryption.append(newSet)
             m = hashlib.md5()
             m.update((fileName + str(count)).encode('utf-8'))
-            Logger.log("Flag 1.11")
-            Logger.log(fileName + str(count))
-            Logger.log(str(int(m.hexdigest(), 16)))
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
-            Logger.log("Flag 1.12")
             return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, self._guid)
 
     def appendTwo(self, file):
@@ -362,29 +350,24 @@ class Chord(object):
                 chordGet = self.locateSuccessor(newPage["Guid"])
                 chainEncryption = []
                 if (len(data)-byteRead) > x['Page Size']:
-                  Logger.log("Flag 1")
-                  RSAInfo = chordGet.chainEncrypt(file, data[byteRead:(byteRead+x['Page Size'])], 0, chainEncryption) 
-                  Logger.log("Flag 2")
-                   #chordGet.chainEncrypt(self, file, data[byteRead:(byteRead+x['Page Size'])], 0, chainEncryption)
-                  #cipherText, RSAInfo = Encryptor.chainInitialize(data[byteRead:(byteRead+x['Page Size'])], file, self)
-                  #RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:(byteRead+x['Page Size'])])
+                  Logger.log("Appending Encryption: Flag 1 " + (str(len(data)-byteRead)))
+                  cipherText, RSAInfo = chordGet.chainEncrypt(file, data[byteRead:(byteRead+x['Page Size'])], 0, chainEncryption) 
                   newPage["Size"] = x['Page Size']
                   x['File Size'] += x['Page Size']
                 else:
-                  RSAInfo = chordGet.chainEncrypt(file, data[byteRead:len(data)], 0, chainEncryption) 
-                  cipherText, RSAInfo = Encryptor.chainInitialize(data[byteRead:len(data)], file, self)
-#                  RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:len(data)])
+                  Logger.log("Appending Encryption: Flag 2")
+                  cipherText, RSAInfo = chordGet.chainEncrypt(file, data[byteRead:len(data)], 0, chainEncryption) 
                   newPage["Size"] = len(data)-byteRead
                   x['File Size'] += len(data)-byteRead
-                Logger.log("Flag 9")
+                Logger.log("Appending: Flag 1")
                 newPage["RSAInfo"] = RSAInfo
-                Logger.log("Flag 10")
-                chordGet.createPage(b64encode(cipherText).decode('utf-8'), newPage["Guid"])
-                Logger.log("Flag 11")
-                x['Pages'].append(newPage)                   
-                Logger.log("Flag 12")
+                Logger.log("Appending: Flag 2")
+                chordGet.createPage(cipherText, newPage["Guid"])
+                Logger.log("Appending: Flag 3")
+                x['Pages'].append(newPage)   
+                Logger.log("Appending: Flag 4")                
                 self.writeMetaData(metadata)
-                Logger.log("Flag 13")
+                Logger.log("Appending: Flag 5")
                 return round((byteRead / len(data)) * 100)                
 
         
@@ -426,8 +409,11 @@ class Chord(object):
                 break
             
     def createPage(self, getMessage, getGuid):
+        Logger.log("Create Page: Flag 1")
         f = open(str(self._guid) + "\\repository\\" + str(getGuid), 'wb+')
+        Logger.log("Create Page: Flag 2")
         f.write(b64decode(getMessage))
+        Logger.log("Create Page: Flag 3")
         f.close()
  
     def removePage(self, getGuid):

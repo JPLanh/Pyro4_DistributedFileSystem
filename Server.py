@@ -41,16 +41,12 @@ class start_server(threading.Thread):
           directory = os.path.dirname(str(self._chord.guid)+"/repository/")
           m = hashlib.md5()
           m.update("MetaData".encode('utf-8'))
-          Logger.log("Server: Flag 1")
           if not os.path.exists(directory):
             os.makedirs(directory)
-          Logger.log("Server: Flag 2")
           with Pyro4.locateNS(host=self._ip, port= self._port-1) as ns:
             ns.register(str(self._chord.guid), chordURI)
-          Logger.log("Server: Flag 3")
           if not os.path.isfile(constant.CHORD_PRIV_PEM):
               if not os.path.isfile(constant.CHORD_PUB_PEM):
-                  Logger.log("Server: Flag 4")
                   privKey, pubKey = self._chord.createKeys()
                   f = open(constant.CHORD_PRIV_PEM, 'wb+')
                   f.write(b64decode(privKey))
@@ -58,8 +54,6 @@ class start_server(threading.Thread):
                   f = open(constant.CHORD_PUB_PEM, 'wb+')
                   f.write(b64decode(pubKey))
                   f.close()
-                  Logger.log("Server: Flag 7")                  
-          Logger.log("Server: Flag 8")
 
           f = open(constant.CHORD_PRIV_PEM, 'rb')
           private_key = serialization.load_pem_private_key(
@@ -67,17 +61,14 @@ class start_server(threading.Thread):
               password=None,
               backend=default_backend()
           )
-          Logger.log("Server: Flag 9")
           f.close()
           privPem = private_key.private_bytes(
               encoding=serialization.Encoding.PEM,
               format=serialization.PrivateFormat.TraditionalOpenSSL,
               encryption_algorithm=serialization.NoEncryption()
           )
-          Logger.log("Server: Flag 10")
           self._chord.addKey(self._chord, b64encode(privPem).decode('UTF-8'))
                               
-          Logger.log("Server: Flag 11")
           daemon.requestLoop()
             
 if __name__ == "__main__":

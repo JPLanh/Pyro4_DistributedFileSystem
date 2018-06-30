@@ -25,15 +25,10 @@ def dataEncrypt(message, encKey, hMacKey):
             return cipherText, IV, hTag
 
 def chainEncryption(message, tag, encKey, hMacKey):
-    Logger.log("Flag 4.1")
     checkTag = hmac.HMAC(hMacKey, hashes.SHA256(), backend=default_backend())
-    Logger.log("Flag 4.2")
     checkTag.update(message)
-    Logger.log("Flag 4.3")
     try:
-        Logger.log("Flag 4.4")
         checkTag.verify(tag)
-        Logger.log("Flag 4.5")
         newEncKey = os.urandom(constant.KEY_BYTE_SIZE)
         newHMacKey = os.urandom(constant.KEY_BYTE_SIZE)
         cipherText, newIV, newHTag = dataEncrypt(message, newEncKey, newHMacKey)
@@ -43,26 +38,17 @@ def chainEncryption(message, tag, encKey, hMacKey):
         return None
     
 def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
-    Logger.log("Flag 1.8.1")
-#    f=open(constant.PRIVATE_PEM, 'rb')
-
     f = open("./testKey", 'wb+')
-    Logger.log("Flag 1.8.1.1")
     f.write(prevKey)
-    Logger.log("Flag 1.8.1.2")
     f.close()
     f = open("./testKey", 'rb')
     
 
     private_key = serialization.load_pem_private_key(
-        f.read(),
+        prevKey,
         password=None,
         backend=default_backend()
     )
-    Logger.log("Flag 1.8.2")
-
-#    f.close()
-    Logger.log(str(len(RSACipher)))
              
     key = private_key.decrypt(
         RSACipher,
@@ -72,15 +58,16 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
             label=None
         )
     )
-    Logger.log("Flag 1.8.3")
     
     encKey = key[:32]
     hMacKey = key[32:]
-    
-    Logger.log("Flag 1.8.4")
+        
+##    Logger.log("Encryptor: Old cipher = " + str(cipherText))
+##    Logger.log("Encryptor: Old tag = " + str(tag))
     newCipher, newIV, newTag, newEncKey, newHMacKey = chainEncryption(cipherText, tag, encKey, hMacKey)
 
-    Logger.log("Flag 1.8.5")
+##    Logger.log("Encryptor: New cipher = " + str(newCipher))
+##    Logger.log("Encryptor: New tag = " + str(newTag))
     f=open(constant.CHORD_PUB_PEM, 'rb')
     public_key = serialization.load_pem_public_key(
         f.read(),
@@ -89,7 +76,6 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
 
     f.close()
 
-    Logger.log("Flag 1.8.6")
     RSACipher = public_key.encrypt(
         newEncKey+newHMacKey,
         asymmetric.padding.OAEP(
@@ -98,10 +84,7 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
             label=None
             )
         )
-    
-    Logger.log("Flag 1.8.7")
-
-    return RSACipher, cipherText, newIV, newTag   
+    return b64encode(RSACipher).decode('UTF-8'), b64encode(newCipher).decode('UTF-8'), b64encode(newIV).decode('UTF-8'), b64encode(newTag).decode('UTF-8')   
 
 def initialize(message):
     encKey = os.urandom(constant.KEY_BYTE_SIZE)

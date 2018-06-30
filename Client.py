@@ -113,7 +113,7 @@ def prompt(chord):
 if __name__ == "__main__":
 #    getIP = input("IP:")
 #    getPort = int(input("Port:"))
-    getIP = "KYOICHI"
+    getIP = "KENGPENG-PC"
     getPort = 23245
     IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
