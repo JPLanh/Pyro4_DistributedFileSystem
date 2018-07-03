@@ -2,7 +2,8 @@ import os
 import glob
 import json
 import constant
-from base64 import b64decode
+import Logger
+from base64 import b64decode, b64encode
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import asymmetric, hmac, serialization, padding, hashes
@@ -23,13 +24,18 @@ def dataDecrypt(cipherText, IV, encKey, hMacKey, tag):
     except InvalidSignature:
         return None
     
-def initialize(RSACipher, cipherText, IV, tag):
-    f=open(constant.PRIVATE_PEM, 'rb')
+def initialize(RSACipher, cipherText, IV, tag, chained):
+    Logger.log("Decryptor: Flag 1")
+    if chained:
+        f=open(constant.CHORD_PRIV_PEM, 'rb')
+    else:
+        f=open(constant.PRIVATE_PEM, 'rb')        
     private_key = serialization.load_pem_private_key(
         f.read(),
         password=None,
         backend=default_backend()
     )
+    Logger.log("Decryptor: Flag 2")
 
     key = private_key.decrypt(
         RSACipher,
@@ -40,9 +46,13 @@ def initialize(RSACipher, cipherText, IV, tag):
         )
     )
 
+    Logger.log("Decryptor: Flag 3")
     encKey = key[:32]
     hMacKey = key[32:]
-    IVSend = IV
-    plainText = dataDecrypt(cipherText, IVSend, encKey, hMacKey, tag)
+    Logger.log("Decryptor: Flag 4")
+    plainText = dataDecrypt(cipherText, IV, encKey, hMacKey, tag)
+    Logger.log("Decryptor: Flag 5")
     if plainText != None:
-        return plainText
+        return b64encode(plainText).decode('UTF-8')
+    else:
+        Logger.log("None returned from decryption")

@@ -273,66 +273,97 @@ class Chord(object):
                     else:
                         self.chainEncrypt(data[byteRead:len(data)], 0, chainEncryption)
 
-    def chainEncrypt(self, fileName, data, count, chainEncryption, prevKey = None):
-        Logger.log("Encryption: Start")
-        if count == constant.MAX_CHAIN_ENCRYPTION:
-            Logger.log("Encryption: Flag 4")
-            return data, chainEncryption
-        elif count == 0:
-            Logger.log("Encrpytion: Flag 1")
-            newSet = {}
-            RSACipher, cipherText, IV, tag = Encryptor.initialize(data)
-            newSet["Set"] = count
-            newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-            newSet["IV"] = b64encode(IV).decode('utf-8')
-            newSet["Tag"] = b64encode(tag).decode('utf-8')
-            chainEncryption.append(newSet)
+    def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
+        try:
             m = hashlib.md5()
-            m.update((fileName + str(count)).encode('utf-8'))
+            m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
+            if count == constant.MAX_CHAIN_ENCRYPTION:
+                return int(m.hexdigest(), 16), data, chainEncryption
+            elif count == 0:
+                newSet = {}
+                RSACipher, cipherText, IV, tag = Encryptor.initialize(data)
+                newSet["Set"] = count
+                newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+                newSet["IV"] = b64encode(IV).decode('utf-8')
+                newSet["Tag"] = b64encode(tag).decode('utf-8')
+                chainEncryption.append(newSet)
 
-            f=open(constant.PRIVATE_PEM, 'rb')
-            private_key = serialization.load_pem_private_key(
-                f.read(),
-                password=None,
-                backend=default_backend()
-            )
-            privPem = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-            return getChord.chainEncrypt(fileName, b64encode(cipherText).decode('utf-8'), count + 1, chainEncryption, b64encode(privPem).decode('utf-8'))
+                f=open(constant.PRIVATE_PEM, 'rb')
+                private_key = serialization.load_pem_private_key(
+                    f.read(),
+                    password=None,
+                    backend=default_backend()
+                )
+                privPem = private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption()
+                )
+                return getChord.chainEncrypt(fileName, b64encode(cipherText).decode('utf-8'), count + 1, chainEncryption, page, b64encode(privPem).decode('utf-8'))
+            else:
+                newSet = {}
+                getKey = None
+                if count == 1:
+                    for x in chainEncryption:
+                        if x["Set"] == count-1:
+                            RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(prevKey))
+                else:                
+                    for y in self.keychain:
+                        if y["Chord"] == prevKey:
+                            for x in chainEncryption:
+                                if x["Set"] == count-1:
+                                    RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
+                newSet["Set"] = count
+                newSet["RSACipher"] = RSACipher
+                newSet["IV"] = IV
+                newSet["Tag"] = tag
+                chainEncryption.append(newSet)
+                return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, page, self._guid)
+        except Exception as e:
+            print(str(e))
+
+    def chainDecryption(self, fileName, data, count, RSAInfo, page = False):
+        Logger.log("Chain Decryption : Flag 1")
+        for x in RSAInfo:
+            if x["Set"] == count:
+                RSACipher = x["RSACipher"]
+                IV = x["IV"]
+                tag = x["Tag"]
+        Logger.log("Chain Decryption : Flag 2")
+        if count == 0:
+            Logger.log("Chain Decryption : Flag 3")
+            return Decryptor.initialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), False)
         else:
-            Logger.log("Encryption: Flag 2")
-            newSet = {}
-            getKey = None
-            if count == 1:
-                Logger.log("Encryption: Flag 2.1")
-                for x in chainEncryption:
-                    if x["Set"] == count-1:
-                        RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(prevKey))
-            else:                
-                Logger.log("Encryption: Flag 2.2")
-                for y in self.keychain:
-                    if y["Chord"] == prevKey:
-                        for x in chainEncryption:
-                            if x["Set"] == count-1:
-                                RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
-            newSet["Set"] = count
-            newSet["RSACipher"] = RSACipher
-            newSet["IV"] = IV
-            newSet["Tag"] = tag
-##            newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-##            newSet["IV"] = b64encode(IV).decode('utf-8')
-##            newSet["Tag"] = b64encode(tag).decode('utf-8')
-            chainEncryption.append(newSet)
-            m = hashlib.md5()
-            m.update((fileName + str(count)).encode('utf-8'))
-            getChord = self.locateSuccessor(int(m.hexdigest(), 16))
-            return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, self._guid)
+            Logger.log("Chain Decryption : Flag 4")
+            if count == constant.MAX_CHAIN_ENCRYPTION-1:
+                cipherText = Decryptor.initialize(b64decode(RSACipher), data, b64decode(IV), b64decode(tag), True)
+            else:
+                cipherText = Decryptor.initialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), True)
+            Logger.log("Chain Decryption : Flag 5")
+            return self.chainDecryption(fileName, cipherText, count - 1, RSAInfo, page)
 
-    def appendTwo(self, file):
+    def download(self, file):
+        try:
+            metadata = self.readMetaData()
+            for x in metadata:
+                if x['File Name'] == file:
+                    Logger.log("Download: File Found")
+                    if not os.path.exists("./Download"):
+                        os.makedirs("./Download")
+                    f = open("./Download/"+file, 'wb')
+                    for y in x['Pages']:
+                        Logger.log("Download: Page Flag")
+                        tempF = open(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']), 'rb')
+                        Logger.log(str(y['Guid']))
+                        f.write(b64decode((self.chainDecryption(file, tempF.read(), constant.MAX_CHAIN_ENCRYPTION-1, y["RSAInfo"]))))
+    #                    f.write(Decryptor.initialize(b64decode(y['RSASet']), tempF.read()))
+                        tempF.close()
+                    f.close()
+        except Exception as e:
+            Logger.log(str(e))
+                
+    def append(self, file):
         metadata = self.readMetaData()
         for x in metadata:
             if x['File Name'] == file:
@@ -346,78 +377,30 @@ class Chord(object):
                 m.update(IPGet.encode('utf-8'))
                 newPage["Page"] = x['Total Pages']
                 x['Total Pages'] += 1
-                newPage["Guid"] = int(m.hexdigest(), 16)
-                chordGet = self.locateSuccessor(newPage["Guid"])
+                chordGet = self.locateSuccessor(int(m.hexdigest(), 16))
                 chainEncryption = []
                 if (len(data)-byteRead) > x['Page Size']:
-                  Logger.log("Appending Encryption: Flag 1 " + (str(len(data)-byteRead)))
-                  cipherText, RSAInfo = chordGet.chainEncrypt(file, data[byteRead:(byteRead+x['Page Size'])], 0, chainEncryption) 
+                  fileGuid, cipherText, RSAInfo = chordGet.chainEncrypt(file, data[byteRead:(byteRead+x['Page Size'])], 0, chainEncryption, x['Total Pages']) 
                   newPage["Size"] = x['Page Size']
                   x['File Size'] += x['Page Size']
                 else:
-                  Logger.log("Appending Encryption: Flag 2")
-                  cipherText, RSAInfo = chordGet.chainEncrypt(file, data[byteRead:len(data)], 0, chainEncryption) 
+                  fileGuid, cipherText, RSAInfo = chordGet.chainEncrypt(file, data[byteRead:len(data)], 0, chainEncryption, x['Total Pages']) 
                   newPage["Size"] = len(data)-byteRead
                   x['File Size'] += len(data)-byteRead
-                Logger.log("Appending: Flag 1")
+                newPage["Guid"] = fileGuid
                 newPage["RSAInfo"] = RSAInfo
-                Logger.log("Appending: Flag 2")
-                chordGet.createPage(cipherText, newPage["Guid"])
-                Logger.log("Appending: Flag 3")
-                x['Pages'].append(newPage)   
-                Logger.log("Appending: Flag 4")                
+                chordGet.createPage(cipherText, fileGuid)
+                x['Pages'].append(newPage)          
                 self.writeMetaData(metadata)
-                Logger.log("Appending: Flag 5")
                 return round((byteRead / len(data)) * 100)                
-
-        
-    def append(self, file):
-        metadata = self.readMetaData()
-        for x in metadata:
-            if x['File Name'] == file:
-                f = open(file, 'rb')
-                data = f.read()
-                pageSize = self.calculateSize(len(data))
-                byteRead = x['File Size']
-                count = 0
-                while byteRead < len(data):
-                    x['Total Pages'] += 1
-                    newPage = {}
-                    m = hashlib.md5()
-                    IPGet = file + ":" + str(count)
-                    m.update(IPGet.encode('utf-8'))
-                    newPage["Page"] = count
-                    newPage["Guid"] = int(m.hexdigest(), 16)
-                    chordGet = self.locateSuccessor(newPage["Guid"])
-                    if (len(data)-byteRead) > pageSize:
-                      RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:(byteRead+pageSize)])
-                      newPage["Size"] = pageSize
-                      byteRead += pageSize
-                      x['File Size'] += pageSize
-                    else:
-                      RSACipher, cipherText, IV, tag = Encryptor.initialize(data[byteRead:len(data)])
-                      newPage["Size"] = len(data)-byteRead
-                      byteRead += len(data)-byteRead
-                      x['File Size'] += len(data)-byteRead
-                    newPage["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-                    newPage["IV"] = b64encode(IV).decode('utf-8')
-                    newPage["Tag"] = b64encode(tag).decode('utf-8')
-                    chordGet.createPage(b64encode(cipherText).decode('utf-8'), newPage["Guid"])
-                    x['Pages'].append(newPage)
-                    count = count + 1                    
-                self.writeMetaData(metadata)
-                break
             
     def createPage(self, getMessage, getGuid):
-        Logger.log("Create Page: Flag 1")
         f = open(str(self._guid) + "\\repository\\" + str(getGuid), 'wb+')
-        Logger.log("Create Page: Flag 2")
         f.write(b64decode(getMessage))
-        Logger.log("Create Page: Flag 3")
         f.close()
  
     def removePage(self, getGuid):
-        os.remove(self._guid +"\\repository\\" + getGuid)
+        os.remove(str(self._guid) + "\\repository\\" + str(getGuid))
 
     def delete(self, file):
         metadata = self.readMetaData()
@@ -426,7 +409,6 @@ class Chord(object):
                 for y in x['Pages']:
                     chordGet = self.locateSuccessor(y['Guid'])
                     chordGet.removePage(y['Guid'])
-#                    os.remove(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']))
                 metadata.remove(x)
                 self.writeMetaData(metadata)
                 break;
@@ -436,22 +418,7 @@ class Chord(object):
         array = []
         for x in metadata:
             array.append("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
-        return array
-
-    def download(self, file):
-        metadata = self.readMetaData()
-        for x in metadata:
-            if x['File Name'] == file:
-                if not os.path.exists("./Download"):
-                    os.makedirs("./Download")
-                f = open("./Download/"+file, 'wb')
-                for y in x['Pages']:
-                    tempF = open(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']), 'rb')
-                    f.write(Decryptor.initialize(b64decode(y['RSASet']), tempF.read()))
-#                    f.write(tempF.read())
-                    tempF.close()
-                f.close()
-                    
+        return array                    
         
     def calculateSize(self, getSize):
         cutSize = getSize / (self.ringAround(self._successor, 0)*5)

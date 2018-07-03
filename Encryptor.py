@@ -38,12 +38,6 @@ def chainEncryption(message, tag, encKey, hMacKey):
         return None
     
 def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
-    f = open("./testKey", 'wb+')
-    f.write(prevKey)
-    f.close()
-    f = open("./testKey", 'rb')
-    
-
     private_key = serialization.load_pem_private_key(
         prevKey,
         password=None,
@@ -62,12 +56,8 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
     encKey = key[:32]
     hMacKey = key[32:]
         
-##    Logger.log("Encryptor: Old cipher = " + str(cipherText))
-##    Logger.log("Encryptor: Old tag = " + str(tag))
     newCipher, newIV, newTag, newEncKey, newHMacKey = chainEncryption(cipherText, tag, encKey, hMacKey)
 
-##    Logger.log("Encryptor: New cipher = " + str(newCipher))
-##    Logger.log("Encryptor: New tag = " + str(newTag))
     f=open(constant.CHORD_PUB_PEM, 'rb')
     public_key = serialization.load_pem_public_key(
         f.read(),

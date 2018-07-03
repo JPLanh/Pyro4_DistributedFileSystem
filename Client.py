@@ -78,10 +78,9 @@ def prompt(chord):
                 progress = 0
                 count = 0
                 while progress < 100:
+                    progress = chord.append(fileName)
                     os.system('cls')
                     print("Uploading, please wait: %s " %progress)
-                    progress = chord.appendTwo(fileName)
-                chord.append(fileName)
             except Exception as e:
                 print(e)
         elif choiceSplit[0].lower() == "join":
@@ -105,6 +104,18 @@ def prompt(chord):
             fileName = getChoice[4:]
             chord.delete(fileName)
         elif choiceSplit[0].lower() == "down":
+            fileName = getChoice[5:]
+            try:
+                File = os.path.isfile(fileName)
+                chord.newFile(fileName)
+                progress = 0
+                count = 0
+                while progress < 100:
+                    progress = chord.append(fileName)
+                    os.system('cls')
+                    print("Download, please wait: %s " %progress)
+            except Exception as e:
+                print(e)
             fileName = getChoice[5:]
             chord.download(fileName)
             print(" ")
