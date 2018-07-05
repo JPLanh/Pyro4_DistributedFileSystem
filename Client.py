@@ -80,7 +80,10 @@ def prompt(chord):
                 while progress < 100:
                     progress = chord.append(fileName)
                     os.system('cls')
-                    print("Uploading, please wait: %s " %progress)
+                    if progress == 100:
+                        print("Upload completed")
+                        break;
+                    print("Uploading, please wait: %s " %progress)                    
             except Exception as e:
                 print(e)
         elif choiceSplit[0].lower() == "join":
@@ -105,19 +108,30 @@ def prompt(chord):
             chord.delete(fileName)
         elif choiceSplit[0].lower() == "down":
             fileName = getChoice[5:]
-            try:
-                File = os.path.isfile(fileName)
-                chord.newFile(fileName)
+            if chord.fileExist(fileName):
                 progress = 0
                 count = 0
+                if not os.path.exists("./Download"):
+                    os.makedirs("./Download")
+                fileNameCrop, fileExtCrop = os.path.splitext(fileName)
+                fileCount = 0
+                file = "./Download/"+fileName
+                while os.path.isfile(file):
+                    file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
+                    fileCount += 1
+                f = open(file, 'wb+')
+                f.close()
+                print("Preparing file for download, please wait")
                 while progress < 100:
-                    progress = chord.append(fileName)
+                    progress = chord.download(fileName, count, file)
                     os.system('cls')
+                    if progress == None:
+                        print("Download completed")
+                        break
+                    count += 1
                     print("Download, please wait: %s " %progress)
-            except Exception as e:
-                print(e)
-            fileName = getChoice[5:]
-            chord.download(fileName)
+            else:
+                print("Unable to locate file in the system")
             print(" ")
     input("Press enter to continue")
 

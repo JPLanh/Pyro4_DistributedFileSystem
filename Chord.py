@@ -321,47 +321,38 @@ class Chord(object):
                 chainEncryption.append(newSet)
                 return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, page, self._guid)
         except Exception as e:
-            print(str(e))
+            Logger.log(str(e))
 
     def chainDecryption(self, fileName, data, count, RSAInfo, page = False):
-        Logger.log("Chain Decryption : Flag 1")
         for x in RSAInfo:
             if x["Set"] == count:
                 RSACipher = x["RSACipher"]
                 IV = x["IV"]
                 tag = x["Tag"]
-        Logger.log("Chain Decryption : Flag 2")
         if count == 0:
-            Logger.log("Chain Decryption : Flag 3")
             return Decryptor.initialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), False)
         else:
-            Logger.log("Chain Decryption : Flag 4")
             if count == constant.MAX_CHAIN_ENCRYPTION-1:
                 cipherText = Decryptor.initialize(b64decode(RSACipher), data, b64decode(IV), b64decode(tag), True)
             else:
                 cipherText = Decryptor.initialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), True)
-            Logger.log("Chain Decryption : Flag 5")
             return self.chainDecryption(fileName, cipherText, count - 1, RSAInfo, page)
 
-    def download(self, file):
+    def download(self, file, pageRead, fileDir):
         try:
             metadata = self.readMetaData()
             for x in metadata:
                 if x['File Name'] == file:
-                    Logger.log("Download: File Found")
-                    if not os.path.exists("./Download"):
-                        os.makedirs("./Download")
-                    f = open("./Download/"+file, 'wb')
                     for y in x['Pages']:
-                        Logger.log("Download: Page Flag")
-                        tempF = open(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']), 'rb')
-                        Logger.log(str(y['Guid']))
-                        f.write(b64decode((self.chainDecryption(file, tempF.read(), constant.MAX_CHAIN_ENCRYPTION-1, y["RSAInfo"]))))
-    #                    f.write(Decryptor.initialize(b64decode(y['RSASet']), tempF.read()))
-                        tempF.close()
-                    f.close()
+                        if y['Page'] == pageRead:
+                            f = open(fileDir, 'ab')
+                            tempF = open(str(self.locateSuccessor(y['Guid']).guid) + "\\repository\\" + str(y['Guid']), 'rb')
+                            f.write(b64decode(self.chainDecryption(file, tempF.read(), constant.MAX_CHAIN_ENCRYPTION-1, y["RSAInfo"])))
+                            tempF.close()
+                            f.close()
+                            return (pageRead / x['Total Pages']) * 100
         except Exception as e:
-            Logger.log(str(e))
+            Logger.log("Error: " + str(e))
                 
     def append(self, file):
         metadata = self.readMetaData()
@@ -418,7 +409,14 @@ class Chord(object):
         array = []
         for x in metadata:
             array.append("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
-        return array                    
+        return array
+
+    def fileExist(self, fileName):
+        metadata = self.readMetaData()
+        for x in metadata:
+            if x['File Name'] == fileName:
+                return True
+        return False
         
     def calculateSize(self, getSize):
         cutSize = getSize / (self.ringAround(self._successor, 0)*5)

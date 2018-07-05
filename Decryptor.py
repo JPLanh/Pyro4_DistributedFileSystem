@@ -25,7 +25,6 @@ def dataDecrypt(cipherText, IV, encKey, hMacKey, tag):
         return None
     
 def initialize(RSACipher, cipherText, IV, tag, chained):
-    Logger.log("Decryptor: Flag 1")
     if chained:
         f=open(constant.CHORD_PRIV_PEM, 'rb')
     else:
@@ -35,7 +34,6 @@ def initialize(RSACipher, cipherText, IV, tag, chained):
         password=None,
         backend=default_backend()
     )
-    Logger.log("Decryptor: Flag 2")
 
     key = private_key.decrypt(
         RSACipher,
@@ -46,12 +44,9 @@ def initialize(RSACipher, cipherText, IV, tag, chained):
         )
     )
 
-    Logger.log("Decryptor: Flag 3")
     encKey = key[:32]
     hMacKey = key[32:]
-    Logger.log("Decryptor: Flag 4")
     plainText = dataDecrypt(cipherText, IV, encKey, hMacKey, tag)
-    Logger.log("Decryptor: Flag 5")
     if plainText != None:
         return b64encode(plainText).decode('UTF-8')
     else:

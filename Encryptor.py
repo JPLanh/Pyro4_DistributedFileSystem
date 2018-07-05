@@ -10,7 +10,6 @@ import hashlib
 import Logger
 
 def dataEncrypt(message, encKey, hMacKey):
-    Logger.log("Flag 4.5.1")
     if len(encKey) == constant.KEY_BYTE_SIZE:
         if len(hMacKey) == constant.KEY_BYTE_SIZE:
             IV = os.urandom(constant.IV_BYTE_SIZE)
