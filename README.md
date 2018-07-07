@@ -8,7 +8,7 @@ https://pythonhosted.org/Pyro4/install.html
 
 ## Start service
 Run cmd
-execute pyro4-ns
+execute pyro4-ns -n (host) -p (port)
 
 ## To list the services
 Run cmd
