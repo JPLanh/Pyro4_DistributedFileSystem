@@ -9,5 +9,5 @@ CHORD_PRIV_PEM = "./private.pem"
 CHORD_PUB_PEM = "./public.pem"
 TEMP_PRIV_PEM = "./tempPriv.pem"
 TEMP_PUB_PEM = "./tempPub.pem"
-SERVER_IP = "ec2-18-218-220-102.us-east-2.compute.amazonaws.com"
+SERVER_IP = "ec2-18-191-99-22.us-east-2.compute.amazonaws.com"
 SERVER_PORT = 23245
