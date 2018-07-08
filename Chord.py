@@ -11,6 +11,7 @@ import Encryptor
 import Decryptor
 import time
 import Logger
+import glob
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -48,6 +49,10 @@ class Chord(object):
         return self._guid
 
     @property
+    def remoteGuid(self):
+        return b64encode(self._guid).decode('UTF-8')        
+
+    @property
     def chord(self):
         return self._chord
 
@@ -62,17 +67,28 @@ class Chord(object):
     def joinRing(self, getIp, getPort, guid):
         with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
             for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+                Logger.log(str(getIp))
                 Logger.log(str(self._guid) + ": Joining Ring")
                 chordGet = Pyro4.Proxy(guidURI)
+                Logger.log("joinRing: Flag 1")
                 self._predecessor = None
+                Logger.log("joinRing: Flag 2")
                 self._successor = chordGet.locateSuccessor(self._guid)                
+                Logger.log("joinRing: Flag 3")
                 self.stabilize()
+                Logger.log("joinRing: Flag 4")
                 self.fixFinger()
+                Logger.log("joinRing: Flag 5")
                 self.checkPredecessor()
+                Logger.log("joinRing: Flag 6")
                 self._successor.stabilize()
+                Logger.log("joinRing: Flag 7")
                 self._successor.fixFinger()
+                Logger.log("joinRing: Flag 8")
                 self._successor.checkPredecessor()
-                self.exchangeKey(self, self._successor)
+                Logger.log("joinRing: Flag 9")
+##                self.exchangeKey(self, self._successor)
+                self.successor.keyEstablish(self, self._successor, self._guid)
                 return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
 
     def createKeys(self):
@@ -95,32 +111,74 @@ class Chord(object):
         )
         
         return b64encode(privPem).decode('UTF-8'), b64encode(pubPem).decode('UTF-8')
+
+    def keyEstablish(self, predecessorChord, currentChord, getGuid):
+        Logger.log("keyEstablish: Flag 1")
+        for x in self.keychain:
+            Logger.log("keyEstablish: Flag 2")
+            if x["Chord"] == getGuid:
+                Logger.log("keyEstablish: Flag 3")
+                break
+        Logger.log("keyEstablish: Flag 4")
+        predecessorChord.exchangeKeyTwo(predecessorChord, currentChord)
+        
+    def exchangeKeyTwo(self, currentChord, nextChord, exchanged = False):
+        Logger.log("ExchangeKey: Flag 1")
+        f=open(constant.CHORD_PRIV_PEM, 'rb')
+        Logger.log("ExchangeKey: Flag 2")
+        private_key = serialization.load_pem_private_key(
+            f.read(),
+            password=None,
+            backend=default_backend()
+        )
+        Logger.log("ExchangeKey: Flag 3")
+        privPem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        Logger.log("ExchangeKey: Flag 4")
+        f.close()
+        nextChord.addKey(currentChord, b64encode(privPem).decode('UTF-8'))
+        Logger.log("ExchangeKey: Flag 5")
+        if not exchanged:                
+            nextChord.exchangeKey(nextChord, currentChord, True)
+            if currentChord.guid != nextChord.successor.guid:
+                nextChord.exchangeKey(currentChord, nextChord.successor)
         
     def exchangeKey(self, currentChord, nextChord, exchanged = False):
-        if not nextChord.hasKey(currentChord):
+        Logger.log("ExchangeKeY: Start")
+        if nextChord.hasKey(currentChord) == "False":
+            Logger.log("ExchangeKey: Flag 1")
             f=open(constant.CHORD_PRIV_PEM, 'rb')
+            Logger.log("ExchangeKey: Flag 2")
             private_key = serialization.load_pem_private_key(
                 f.read(),
                 password=None,
                 backend=default_backend()
             )
+            Logger.log("ExchangeKey: Flag 3")
             privPem = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption()
             )
+            Logger.log("ExchangeKey: Flag 4")
             f.close()
             nextChord.addKey(currentChord, b64encode(privPem).decode('UTF-8'))
+            Logger.log("ExchangeKey: Flag 5")
             if not exchanged:                
                 nextChord.exchangeKey(nextChord, currentChord, True)
                 if currentChord.guid != nextChord.successor.guid:
                     return nextChord.exchangeKey(currentChord, nextChord.successor)
 
     def hasKey(self, chordGet):
+        Logger.log("HasKey: Flag 1")
         for x in self.keychain:
             if x["Chord"] == chordGet.guid:
-                return True
-        return False
+                Logger.log("HasKey: Flag 2")
+                return "True"
+        return "False"
     
     def addKey(self, chordGet, keyGet):
         key = {}
@@ -202,7 +260,12 @@ class Chord(object):
             return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor.guid))
         else:
             return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor))
-            
+
+    def replaceKey(self):
+        files = os.listdir(str(self._guid) + "\\repository\\")
+        for x in files:
+            print(x)
+        
     def locateSuccessor(self, guid):
         if guid == self._guid:
             print ("Error it's the same shit")

@@ -77,7 +77,7 @@ if __name__ == "__main__":
     m.update(IPGet.encode('utf-8'))
     guid = int(m.hexdigest(), 16)
     chord = Chord(sys.argv[1], sys.argv[2], guid)
-    ctypes.windll.kernel32.SetConsoleTitleW(sys.argv[1] +":"+ sys.argv[2] + " (" + str(guid) + ")")
+    #ctypes.windll.kernel32.SetConsoleTitleW(sys.argv[1] +":"+ sys.argv[2] + " (" + str(guid) + ")")
 
     try:
         Pyro4.locateNS(host=sys.argv[1], port =int(sys.argv[2]))

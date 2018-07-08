@@ -69,6 +69,10 @@ def prompt(chord):
             print(chord.simplePrint())
         elif choiceSplit[0].lower() == "reg":
             register(chord)
+        elif choiceSplit[0].lower() == "new":
+            fileGet = chord.replaceKey()
+            for x in fileGet:
+                print(x)
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
             fileName = getChoice[3:]
@@ -99,8 +103,8 @@ def prompt(chord):
                             print(chord.joinRing(choiceSplit[1], str(choiceSplit[2]), int(m.hexdigest(), 16)))
                         except Pyro4.errors.NamingError:
                             print("Unable to locate server")
-                    except:
-                        print("Port must be a number")
+                    except Exception as e:
+                        print(str(e))
             else:
                 print("Unable to locate server")
         elif choiceSplit[0].lower() == "del":
@@ -136,10 +140,10 @@ def prompt(chord):
     input("Press enter to continue")
 
 if __name__ == "__main__":
-#    getIP = input("IP:")
-#    getPort = int(input("Port:"))
-    getIP = "KENGPENG-PC"
-    getPort = 23245
+    getIP = input("IP:")
+    getPort = int(input("Port:"))
+##    getIP = "172.31.99.165"
+##    getPort = 23245
     IPGet = getIP + ":" + str(getPort)
     m = hashlib.md5()
     m.update(IPGet.encode('utf-8'))
@@ -154,13 +158,16 @@ if __name__ == "__main__":
             with Pyro4.locateNS(host=getIP, port=getPort-1) as ns:
                 for guidGet, guidURI in ns.list(prefix=str(guid)).items():
                     chord = Pyro4.Proxy(guidURI)
-        except Pyro4.errors.NamingError:
-            print("Error finding a nameSpace, retrying")
+                    print(Pyro4.socketutil.getIpAddress(getIP))
+        except Exception as e:
+#        except Pyro4.errors.NamingError:
+#            print("Error finding a nameSpace, retrying")
+            print(str(e))
             time.sleep(1)
 
-    ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
+#    ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
     
     while True:
          prompt(chord)
-         if chord.successor != chord.guid:
-             ctypes.windll.kernel32.SetConsoleTitleW(IPGet + "-> " + str(chord.successor.ip) + ":" + str(chord.successor.port))
+#         if chord.successor != chord.guid:
+#             ctypes.windll.kernel32.SetConsoleTitleW(IPGet + "-> " + str(chord.successor.ip) + ":" + str(chord.successor.port))
