@@ -65,31 +65,35 @@ class Chord(object):
         return self._predecessor
 
     def joinRing(self, getIp, getPort, guid):
-        with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
-            for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-                Logger.log(str(getIp))
-                Logger.log(str(self._guid) + ": Joining Ring")
-                chordGet = Pyro4.Proxy(guidURI)
-                Logger.log("joinRing: Flag 1")
-                self._predecessor = None
-                Logger.log("joinRing: Flag 2")
-                self._successor = chordGet.locateSuccessor(self._guid)                
-                Logger.log("joinRing: Flag 3")
-                self.stabilize()
-                Logger.log("joinRing: Flag 4")
-                self.fixFinger()
-                Logger.log("joinRing: Flag 5")
-                self.checkPredecessor()
-                Logger.log("joinRing: Flag 6")
-                self._successor.stabilize()
-                Logger.log("joinRing: Flag 7")
-                self._successor.fixFinger()
-                Logger.log("joinRing: Flag 8")
-                self._successor.checkPredecessor()
-                Logger.log("joinRing: Flag 9")
-##                self.exchangeKey(self, self._successor)
-                self.successor.keyEstablish(self, self._successor, self._guid)
-                return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
+        Logger.log(str(getIp) + ":" + str(getPort) + " (" + str(guid) + ")")
+        try:
+            with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
+                for guidGet, guidURI in ns.list(prefix=str(guid)).items():
+                    Logger.log(str(getIp))
+                    Logger.log(str(self._guid) + ": Joining Ring")
+                    chordGet = Pyro4.Proxy(guidURI)
+                    Logger.log("joinRing: Flag 1")
+                    self._predecessor = None
+                    Logger.log("joinRing: Flag 2")
+                    self._successor = chordGet.locateSuccessor(self._guid)                
+                    Logger.log("joinRing: Flag 3")
+                    self.stabilize()
+                    Logger.log("joinRing: Flag 4")
+                    self.fixFinger()
+                    Logger.log("joinRing: Flag 5")
+                    self.checkPredecessor()
+                    Logger.log("joinRing: Flag 6")
+                    self._successor.stabilize()
+                    Logger.log("joinRing: Flag 7")
+                    self._successor.fixFinger()
+                    Logger.log("joinRing: Flag 8")
+                    self._successor.checkPredecessor()
+                    Logger.log("joinRing: Flag 9")
+    ##                self.exchangeKey(self, self._successor)
+                    self.successor.keyEstablish(self, self._successor, self._guid)
+                    return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
+        except Exception as e:
+            Logger.log(str(e))
 
     def createKeys(self):
         privateKey = rsa.generate_private_key(

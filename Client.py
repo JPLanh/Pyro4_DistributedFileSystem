@@ -9,6 +9,7 @@ import time
 import json
 import constant
 import subprocess
+import Logger
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import asymmetric, serialization
@@ -140,34 +141,25 @@ def prompt(chord):
     input("Press enter to continue")
 
 if __name__ == "__main__":
-    getIP = input("IP:")
-    getPort = int(input("Port:"))
-##    getIP = "172.31.99.165"
-##    getPort = 23245
-    IPGet = getIP + ":" + str(getPort)
-    m = hashlib.md5()
-    m.update(IPGet.encode('utf-8'))
-    guid = int(m.hexdigest(), 16)
-    surver = subprocess.Popen(['python', 'Server.py', str(getIP), str(getPort)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
+    serverFile = open("./ServerList", 'r')
+    serverList = json.load(serverFile)
     while not ('chord' in locals()):
         os.system("cls")
         print("Connecting ")
         time.sleep(1)
         try:
-            with Pyro4.locateNS(host=getIP, port=getPort-1) as ns:
-                for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-                    chord = Pyro4.Proxy(guidURI)
-                    print(Pyro4.socketutil.getIpAddress(getIP))
+            for x in serverList["Servers"]:
+                with Pyro4.locateNS(host=x["IP"], port=(int(x["Port"])-1)) as ns:
+                    m = hashlib.md5()
+                    connectionConfig = str(x["IP"]) +":"+ str(x["Port"])
+                    m.update(connectionConfig.encode('UTF-8'))                    
+                    for guidGet, guidURI in ns.list(prefix=str(int(m.hexdigest(), 16))).items():
+                        chord = Pyro4.Proxy(guidURI)
         except Exception as e:
-#        except Pyro4.errors.NamingError:
-#            print("Error finding a nameSpace, retrying")
             print(str(e))
             time.sleep(1)
 
-#    ctypes.windll.kernel32.SetConsoleTitleW(getIP +":"+ str(getPort) + " (" + str(guid) + ")")
+    ctypes.windll.kernel32.SetConsoleTitleW(chord.ip +":"+ str(chord.port) + " (" + str(chord.guid) + ")")
     
     while True:
          prompt(chord)
-#         if chord.successor != chord.guid:
-#             ctypes.windll.kernel32.SetConsoleTitleW(IPGet + "-> " + str(chord.successor.ip) + ":" + str(chord.successor.port))
