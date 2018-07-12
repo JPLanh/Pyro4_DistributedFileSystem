@@ -324,22 +324,6 @@ class Chord(object):
         metadata.append(fileInfo)
         self.writeMetaData(metadata)
 
-    def distribute(self, file):
-        metadata = self.readMetaData()
-        for x in metadata:
-            if x['File Name'] == file:
-                f = open(file, 'rb')
-                data = f.read()
-                pageSize = self.calculateSize(len(data))
-                byteRead = x['File Size']
-                count = 0
-                while byteRead < len(data):
-                    chainEncryption = {}
-                    if (len(data)-byteRead) > pageSize:
-                        self.chainEncrypt(data[byteRead:(byteRead+pageSize)], 0, chainEncryption)
-                    else:
-                        self.chainEncrypt(data[byteRead:len(data)], 0, chainEncryption)
-
     def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
         try:
             m = hashlib.md5()

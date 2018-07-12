@@ -4,15 +4,9 @@ import hashlib
 import sys
 import os
 import ctypes
-import threading
 import time
 import json
 import constant
-import subprocess
-import Logger
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import asymmetric, serialization
 from Chord import Chord
 from base64 import b64encode, b64decode
 
@@ -38,6 +32,24 @@ def register(chord):
     f = open(constant.USB_DIR+str(int(m.hexdigest(), 16)), 'w')
     json.dump(metaData, f)
     f.close()
+
+def readMetaData():
+    m = hashlib.md5()
+    m.update("MetaData".encode('utf-8'))
+    meta = int(m.hexdigest(), 16)
+    jread = open(constant.USB_USB_DIR+str(meta), 'r')
+    jsonRead = json.load(jread)
+    return jsonRead["metadata"]
+
+def writeMetaData(rawData):
+    m = hashlib.md5()
+    m.update("MetaData".encode('utf-8'))
+    meta = int(m.hexdigest(), 16)
+    jread = open(constant.USB_USB_DIR+str(meta), 'w')
+    metadata = {}
+    metadata['metadata'] = raw
+    json.dump(metadata, jread)
+    jread.close()
       
 def prompt(chord):
     os.system('cls')
@@ -57,9 +69,7 @@ def prompt(chord):
             print('Download \t down \t  {filename} \t Download the specifed filename')
             print('Exit \t\t exit \t \t\t Exit from the system')
         elif choiceSplit[0].lower() == "ls":
-          array = chord.ls()
-          for x in array:
-              print(x)
+            showDirectory(chord)
         elif choiceSplit[0].lower() == "key":
             chord.keyPrint()
         elif choiceSplit[0].lower() == "ring":
@@ -70,75 +80,86 @@ def prompt(chord):
             print(chord.simplePrint())
         elif choiceSplit[0].lower() == "reg":
             register(chord)
-        elif choiceSplit[0].lower() == "new":
-            fileGet = chord.replaceKey()
-            for x in fileGet:
-                print(x)
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
-            fileName = getChoice[3:]
-            try:
-                File = os.path.isfile(fileName)
-                chord.newFile(fileName)
-                progress = 0
-                count = 0
-                while progress < 100:
-                    progress = chord.append(fileName)
-                    os.system('cls')
-                    if progress == 100:
-                        print("Upload completed")
-                        break;
-                    print("Uploading, please wait: %s " %progress)                    
-            except Exception as e:
-                print(e)
+            upload(getChoice[3:])
         elif choiceSplit[0].lower() == "join":
             if len(choiceSplit) == 3:
-                if (choiceSplit[1] == chord.ip) and (choiceSplit[2] == chord.port):
-                    print("Unable to join the same chord")
-                else:
-                    try:
-                        m = hashlib.md5()
-                        IPGet = choiceSplit[1] + ":" + str(choiceSplit[2])
-                        m.update(IPGet.encode('utf-8'))
-                        try:
-                            print(chord.joinRing(choiceSplit[1], str(choiceSplit[2]), int(m.hexdigest(), 16)))
-                        except Pyro4.errors.NamingError:
-                            print("Unable to locate server")
-                    except Exception as e:
-                        print(str(e))
-            else:
-                print("Unable to locate server")
+                joinRing(chord, choiceSplit[1], str(choiceSplit[2]))
         elif choiceSplit[0].lower() == "del":
             fileName = getChoice[4:]
             chord.delete(fileName)
         elif choiceSplit[0].lower() == "down":
             fileName = getChoice[5:]
-            if chord.fileExist(fileName):
-                progress = 0
-                count = 0
-                if not os.path.exists("./Download"):
-                    os.makedirs("./Download")
-                fileNameCrop, fileExtCrop = os.path.splitext(fileName)
-                fileCount = 0
-                file = "./Download/"+fileName
-                while os.path.isfile(file):
-                    file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
-                    fileCount += 1
-                f = open(file, 'wb+')
-                f.close()
-                print("Preparing file for download, please wait")
-                while progress < 100:
-                    progress = chord.download(fileName, count, file)
-                    os.system('cls')
-                    if progress == None:
-                        print("Download completed")
-                        break
-                    count += 1
-                    print("Download, please wait: %s " %progress)
-            else:
-                print("Unable to locate file in the system")
-            print(" ")
+            download(chord, fileName)
     input("Press enter to continue")
+
+def upload(chord, fileName):
+    try:
+        File = os.path.isfile(fileName)
+        tempMetaData = readMetaData()                
+        tempMetaData.append(chord.newFile(fileName))
+        writeMetaData(tempMetaData)
+        progress = 0
+        count = 0
+        while progress < 100:
+            progress = chord.append(fileName)
+            os.system('cls')
+            if progress == 100:
+                print("Upload completed")
+                break;
+            print("Uploading, please wait: %s " %progress)                    
+    except Exception as e:
+        print(e)
+
+def download(chord, fileName):    
+    if chord.fileExist(fileName):
+        progress = 0
+        count = 0
+        if not os.path.exists("./Download"):
+            os.makedirs("./Download")
+        fileNameCrop, fileExtCrop = os.path.splitext(fileName)
+        fileCount = 0
+        file = "./Download/"+fileName
+        while os.path.isfile(file):
+            file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
+            fileCount += 1
+        f = open(file, 'wb+')
+        f.close()
+        print("Preparing file for download, please wait")
+        while progress < 100:
+            progress = chord.download(fileName, count, file)
+            os.system('cls')
+            if progress == None:
+                print("Download completed")
+                break
+            count += 1
+            print("Download, please wait: %s " %progress)
+    else:
+        print("Unable to locate file in the system")
+
+def showDirectory(chord):
+    try:
+        array = chord.ls()
+        for x in array:
+            print(x)
+    except FileNotFoundError as e:
+        print("USB not recognized, now aborting")
+
+def joinRing(chord, getIP, getPort):
+    if (getIP == chord.ip) and (getPort == chord.port):
+        print("Unable to join the same chord")
+    else:
+        try:
+            m = hashlib.md5()
+            IPGet = getIP + ":" + getPort
+            m.update(IPGet.encode('utf-8'))
+            try:
+                print(chord.joinRing(getIP, getPort, int(m.hexdigest(), 16)))
+            except Pyro4.errors.NamingError:
+                print("Unable to locate server")
+        except Exception as e:
+            print(str(e))
 
 if __name__ == "__main__":
     serverFile = open("./ServerList", 'r')
