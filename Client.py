@@ -37,7 +37,7 @@ def readMetaData():
     m = hashlib.md5()
     m.update("MetaData".encode('utf-8'))
     meta = int(m.hexdigest(), 16)
-    jread = open(constant.USB_USB_DIR+str(meta), 'r')
+    jread = open(constant.USB_DIR+str(meta), 'r')
     jsonRead = json.load(jread)
     return jsonRead["metadata"]
 
@@ -45,7 +45,7 @@ def writeMetaData(rawData):
     m = hashlib.md5()
     m.update("MetaData".encode('utf-8'))
     meta = int(m.hexdigest(), 16)
-    jread = open(constant.USB_USB_DIR+str(meta), 'w')
+    jread = open(constant.USB_DIR+str(meta), 'w')
     metadata = {}
     metadata['metadata'] = raw
     json.dump(metadata, jread)
@@ -82,7 +82,7 @@ def prompt(chord):
             register(chord)
     elif len(choiceSplit) > 1:
         if choiceSplit[0].lower() == "up":
-            upload(getChoice[3:])
+            upload(chord, getChoice[3:])
         elif choiceSplit[0].lower() == "join":
             if len(choiceSplit) == 3:
                 joinRing(chord, choiceSplit[1], str(choiceSplit[2]))
@@ -95,22 +95,75 @@ def prompt(chord):
     input("Press enter to continue")
 
 def upload(chord, fileName):
-    try:
-        File = os.path.isfile(fileName)
-        tempMetaData = readMetaData()                
-        tempMetaData.append(chord.newFile(fileName))
-        writeMetaData(tempMetaData)
-        progress = 0
-        count = 0
-        while progress < 100:
-            progress = chord.append(fileName)
-            os.system('cls')
-            if progress == 100:
-                print("Upload completed")
-                break;
-            print("Uploading, please wait: %s " %progress)                    
-    except Exception as e:
-        print(e)
+    os.path.isfile(fileName)
+    tempMetaData = readMetaData()
+    f = open(fileName, 'rb')
+    data = f.read()
+    f.close()
+    fileInfo = {}
+    fileInfo['File Name'] = fileName
+    fileInfo['Total Pages'] = 0
+    fileInfo['Page Size'] = chord.calculateSize(len(data))
+    fileInfo['File Size'] = 0
+    pages = []
+    fileInfo['Pages'] = pages
+    while fileInfo['File Size'] < len(data):
+        newPage = {}
+        m = hashlib.md5()
+        IPGet = fileName + ":" + str(fileInfo['Total Pages'])
+        m.update(IPGet.encode('utf-8'))
+        newPage["Page"] = fileInfo['Total Pages']
+        fileInfo['Total Pages'] += 1
+        if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
+            dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
+            newPage['Size'] = fileInfo['Page Size']
+            fileInfo['File Size'] += fileInfo['Page Size']
+        else:
+            dataSegment = data[fileInfo['File Size']:len(data)]
+            newPage['Size'] = len(data) - fileInfo['File Size']
+            fileInfo['File Size'] += newPage['Size']
+#        chordGet = chord.locateSuccessor(int(m.hexdigest(), 16))
+        fileGuid, RSAInfo = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'])
+        newPage["Guid"] = fileGuid
+        newPage["RSAInfo"] = RSAInfo
+        fileInfo['Pages'].append(newPage)
+    tempMetaData.append(fileInfo)
+    writeMetaData(tempMetaData)
+
+    
+##def upload(chord, fileName):
+##    try:
+##        print("Upload Flag 1:")
+##        File = os.path.isfile(fileName)
+##        print("Upload Flag 2:")
+##        tempMetaData = readMetaData()                
+##        print("Upload Flag 3:")
+##        print(File)
+##        tempMetaData.append(newFile(fileName))
+##        print("Flag 4")
+##        writeMetaData(tempMetaData)
+##        print("Flag 5")
+##        progress = 0
+##        f = open (fileName, 'rb')
+##        data = f.read()
+##        f.close()
+##        newPage = {}
+##        while progress < 100:
+##            m = hashlib.md5()
+##            IPGet = file + ":" + str(x['Total Pages'])
+##            m.update(IPGet.encode('utf-8'))
+##            newPage["Page"] = x['Total Pages']
+##            x['Total Pages'] += 1
+##            print("Flag 6")
+##            chord.append2(int(m.hexdigest(), 16))
+###            progress = chord.append(fileName)
+##            os.system('cls')
+##            if progress == 100:
+##                print("Upload completed")
+##                break;
+##            print("Uploading, please wait: %s " %progress)                    
+##    except Exception as e:
+##        print(e)
 
 def download(chord, fileName):    
     if chord.fileExist(fileName):
@@ -140,9 +193,9 @@ def download(chord, fileName):
 
 def showDirectory(chord):
     try:
-        array = chord.ls()
-        for x in array:
-            print(x)
+        metadata = readMetaData()
+        for x in metadata:
+            print("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
     except FileNotFoundError as e:
         print("USB not recognized, now aborting")
 

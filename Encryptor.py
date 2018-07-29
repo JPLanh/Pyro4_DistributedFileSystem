@@ -10,6 +10,7 @@ import hashlib
 import Logger
 
 def dataEncrypt(message, encKey, hMacKey):
+    Logger.log("Encryption Data Encrypt: 1")
     if len(encKey) == constant.KEY_BYTE_SIZE:
         if len(hMacKey) == constant.KEY_BYTE_SIZE:
             IV = os.urandom(constant.IV_BYTE_SIZE)
@@ -76,9 +77,12 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
     return b64encode(RSACipher).decode('UTF-8'), b64encode(newCipher).decode('UTF-8'), b64encode(newIV).decode('UTF-8'), b64encode(newTag).decode('UTF-8')   
 
 def initialize(message):
+    Logger.log("Encryption Initalize: 1")
     encKey = os.urandom(constant.KEY_BYTE_SIZE)
     hMacKey = os.urandom(constant.KEY_BYTE_SIZE)
+    Logger.log("Encryption Initalize: 2")
     cipherText, IV, tag = dataEncrypt(message, encKey, hMacKey)
+    Logger.log("Encryption Initalize: 3")
     if cipherText != None:
         f=open(constant.PUBLIC_PEM, 'rb')
         public_key = serialization.load_pem_public_key(

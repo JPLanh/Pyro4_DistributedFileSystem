@@ -69,26 +69,15 @@ class Chord(object):
         try:
             with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
                 for guidGet, guidURI in ns.list(prefix=str(guid)).items():
-                    Logger.log(str(getIp))
-                    Logger.log(str(self._guid) + ": Joining Ring")
                     chordGet = Pyro4.Proxy(guidURI)
-                    Logger.log("joinRing: Flag 1")
                     self._predecessor = None
-                    Logger.log("joinRing: Flag 2")
                     self._successor = chordGet.locateSuccessor(self._guid)                
-                    Logger.log("joinRing: Flag 3")
                     self.stabilize()
-                    Logger.log("joinRing: Flag 4")
                     self.fixFinger()
-                    Logger.log("joinRing: Flag 5")
                     self.checkPredecessor()
-                    Logger.log("joinRing: Flag 6")
                     self._successor.stabilize()
-                    Logger.log("joinRing: Flag 7")
                     self._successor.fixFinger()
-                    Logger.log("joinRing: Flag 8")
                     self._successor.checkPredecessor()
-                    Logger.log("joinRing: Flag 9")
     ##                self.exchangeKey(self, self._successor)
                     self.successor.keyEstablish(self, self._successor, self._guid)
                     return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
@@ -310,7 +299,7 @@ class Chord(object):
             return count            
         
     def newFile(self, file):
-        metadata = self.readMetaData()
+        Logger.log("New File: Flag 1")
         f = open(file, 'rb')
         data = f.read()
         f.close()
@@ -321,24 +310,34 @@ class Chord(object):
         fileInfo['File Size'] = 0
         pages = []
         fileInfo['Pages'] = pages
-        metadata.append(fileInfo)
-        self.writeMetaData(metadata)
+        Logger.log("New File: Flag 2")
+        return fileInfo
+##        metadata.append(fileInfo)
+##        Logger.log("New File: Flag 9")
+##        self.writeMetaData(metadata)
+##        Logger.log("New File: Flag 10")
 
     def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
         try:
+            Logger.log("Chain Encrpytion Flag 1")
             m = hashlib.md5()
             m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
+            Logger.log("Chain Encrpytion Flag 2")
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
+            Logger.log("Chain Encrpytion Flag 3")
             if count == constant.MAX_CHAIN_ENCRYPTION:
                 return int(m.hexdigest(), 16), data, chainEncryption
             elif count == 0:
+                Logger.log("Chain Encrpytion Flag 4")
                 newSet = {}
                 RSACipher, cipherText, IV, tag = Encryptor.initialize(data)
+                Logger.log("Chain Encrpytion Flag 5")
                 newSet["Set"] = count
                 newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
                 newSet["IV"] = b64encode(IV).decode('utf-8')
                 newSet["Tag"] = b64encode(tag).decode('utf-8')
                 chainEncryption.append(newSet)
+                Logger.log("Chain Encrpytion Flag 6")
 
                 f=open(constant.PRIVATE_PEM, 'rb')
                 private_key = serialization.load_pem_private_key(
@@ -353,6 +352,7 @@ class Chord(object):
                 )
                 return getChord.chainEncrypt(fileName, b64encode(cipherText).decode('utf-8'), count + 1, chainEncryption, page, b64encode(privPem).decode('utf-8'))
             else:
+                Logger.log("Chain Encrpytion Flag 7")
                 newSet = {}
                 getKey = None
                 if count == 1:
@@ -370,6 +370,7 @@ class Chord(object):
                 newSet["IV"] = IV
                 newSet["Tag"] = tag
                 chainEncryption.append(newSet)
+                Logger.log("Chain Encrpytion Flag 8")
                 return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, page, self._guid)
         except Exception as e:
             Logger.log(str(e))
@@ -404,7 +405,18 @@ class Chord(object):
                             return (pageRead / x['Total Pages']) * 100
         except Exception as e:
             Logger.log("Error: " + str(e))
-                
+
+    def upload(self, fileName, message, totalPage):
+        chainEncryption = []
+        Logger.log("Upload Flag 1")
+        fileGuid, cipherText, RSAInfo = self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage)
+        Logger.log("Upload Flag 2: " + fileGuid)
+        chordGet = self.locateSuccessor(fileGuid)
+        Logger.log("Upload Flag 3")
+        chordGet.createPage(cipherText, fileGuid)
+        Logger.log("Upload Flag 4")
+        return fileGuid, RSAInfo
+        
     def append(self, file):
         metadata = self.readMetaData()
         for x in metadata:
