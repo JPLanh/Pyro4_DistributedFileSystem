@@ -81,14 +81,16 @@ def initialize(message):
     encKey = os.urandom(constant.KEY_BYTE_SIZE)
     hMacKey = os.urandom(constant.KEY_BYTE_SIZE)
     Logger.log("Encryption Initalize: 2")
-    cipherText, IV, tag = dataEncrypt(message, encKey, hMacKey)
+    cipherText, IV, tag = dataEncrypt(b64decode(message), encKey, hMacKey)
     Logger.log("Encryption Initalize: 3")
     if cipherText != None:
-        f=open(constant.PUBLIC_PEM, 'rb')
+        f=open(constant.CHORD_PUB_PEM, 'rb')
+        Logger.log("Encryption Initialize: 4")
         public_key = serialization.load_pem_public_key(
             f.read(),
             backend=default_backend()
         )
+        Logger.log("Encryption Initialize: 5")
 
         RSACipher = public_key.encrypt(
             encKey+hMacKey,
@@ -98,4 +100,5 @@ def initialize(message):
                 label=None
                 )
             )
+        Logger.log("Encryption Initialize: 6")
         return RSACipher, cipherText, IV, tag

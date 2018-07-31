@@ -47,7 +47,7 @@ def writeMetaData(rawData):
     meta = int(m.hexdigest(), 16)
     jread = open(constant.USB_DIR+str(meta), 'w')
     metadata = {}
-    metadata['metadata'] = raw
+    metadata['metadata'] = rawData
     json.dump(metadata, jread)
     jread.close()
       

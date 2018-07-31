@@ -326,7 +326,9 @@ class Chord(object):
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
             Logger.log("Chain Encrpytion Flag 3")
             if count == constant.MAX_CHAIN_ENCRYPTION:
-                return int(m.hexdigest(), 16), data, chainEncryption
+                Logger.log("Chain Encrpytion Flag 9")
+                Logger.log(m.hexdigest())
+                return str(int(m.hexdigest(), 16)), data, chainEncryption
             elif count == 0:
                 Logger.log("Chain Encrpytion Flag 4")
                 newSet = {}
@@ -411,9 +413,9 @@ class Chord(object):
         Logger.log("Upload Flag 1")
         fileGuid, cipherText, RSAInfo = self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage)
         Logger.log("Upload Flag 2: " + fileGuid)
-        chordGet = self.locateSuccessor(fileGuid)
+        chordGet = self.locateSuccessor(int(fileGuid))
         Logger.log("Upload Flag 3")
-        chordGet.createPage(cipherText, fileGuid)
+        chordGet.createPage(cipherText, int(fileGuid))
         Logger.log("Upload Flag 4")
         return fileGuid, RSAInfo
         
@@ -449,7 +451,7 @@ class Chord(object):
                 return round((byteRead / len(data)) * 100)                
             
     def createPage(self, getMessage, getGuid):
-        f = open(str(self._guid) + "\\repository\\" + str(getGuid), 'wb+')
+        f = open(str(self._guid) + "/repository/" + str(getGuid), 'wb+')
         f.write(b64decode(getMessage))
         f.close()
  
