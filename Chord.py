@@ -67,22 +67,36 @@ class Chord(object):
     def joinRing(self, getIp, getPort, guid):
         Logger.log(str(getIp) + ":" + str(getPort) + " (" + str(guid) + ")")
         try:
+            print("Join flag 1")
             with Pyro4.locateNS(host=getIp, port=int(getPort)-1) as ns:
+                print("Join Flag 2")
                 for guidGet, guidURI in ns.list(prefix=str(guid)).items():
                     chordGet = Pyro4.Proxy(guidURI)
+                    print("Join flag 4")
                     self._predecessor = None
-                    self._successor = chordGet.locateSuccessor(self._guid)                
+                    self._successor = chordGet.locateSuccessor(self._guid)
+                    chordGet.echo("Test")
+                    print(self._successor.guid)
                     self.stabilize()
+                    print(self._successor.guid)
                     self.fixFinger()
+                    print(self._successor.guid)
                     self.checkPredecessor()
+                    print(self._successor.guid)
                     self._successor.stabilize()
+                    print(self._successor.guid)
                     self._successor.fixFinger()
+                    print(self._successor.guid)
                     self._successor.checkPredecessor()
+                    print(self._successor.guid)
     ##                self.exchangeKey(self, self._successor)
-                    self.successor.keyEstablish(self, self._successor, self._guid)
+                    self._successor.keyEstablish(self, self._successor, self._guid)
                     return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
         except Exception as e:
             Logger.log(str(e))
+
+    def echo(self, message):
+        print(message)
 
     def createKeys(self):
         privateKey = rsa.generate_private_key(
@@ -117,6 +131,10 @@ class Chord(object):
         
     def exchangeKeyTwo(self, currentChord, nextChord, exchanged = False):
         Logger.log("ExchangeKey: Flag 1")
+        print("ExchangeKey: Flag 1")
+        print(nextChord)
+        print(currentChord)
+        print("ExchangeKey: Flag 2")
         f=open(constant.CHORD_PRIV_PEM, 'rb')
         Logger.log("ExchangeKey: Flag 2")
         private_key = serialization.load_pem_private_key(
@@ -135,12 +153,14 @@ class Chord(object):
         nextChord.addKey(currentChord, b64encode(privPem).decode('UTF-8'))
         Logger.log("ExchangeKey: Flag 5")
         if not exchanged:                
-            nextChord.exchangeKey(nextChord, currentChord, True)
+            nextChord.exchangeKeyTwo(nextChord, currentChord, True)
             if currentChord.guid != nextChord.successor.guid:
-                nextChord.exchangeKey(currentChord, nextChord.successor)
+                nextChord.exchangeKeyTwo(currentChord, nextChord._successor)
         
     def exchangeKey(self, currentChord, nextChord, exchanged = False):
         Logger.log("ExchangeKeY: Start")
+        print(nextChord)
+        print(currentChord)
         if nextChord.hasKey(currentChord) == "False":
             Logger.log("ExchangeKey: Flag 1")
             f=open(constant.CHORD_PRIV_PEM, 'rb')
@@ -168,6 +188,7 @@ class Chord(object):
     def hasKey(self, chordGet):
         Logger.log("HasKey: Flag 1")
         for x in self.keychain:
+            print(x["Chord"])
             if x["Chord"] == chordGet.guid:
                 Logger.log("HasKey: Flag 2")
                 return "True"
@@ -191,9 +212,8 @@ class Chord(object):
                     self._successor = x
                 if self._successor.guid != self._guid:
                     self._successor.notify(self)
-            except:
-                x = self
-                self._successor = x
+            except Exception as e:
+                pass
             
     def notify(self, chord):
         if self._predecessor == None:
@@ -249,7 +269,7 @@ class Chord(object):
             return self._successor
 
     def simplePrint(self):
-        if self.predecessor != None:
+        if self._predecessor != None:
             return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor.guid))
         else:
             return ("S: %s C: %s P: %s" %(self._successor.guid, self.guid, self._predecessor))
@@ -263,18 +283,20 @@ class Chord(object):
         if guid == self._guid:
             print ("Error it's the same shit")
         else:
-            if self._successor.guid != guid:
-                if self.inInterval("Close", guid, self._guid, self._successor.guid):
-                    return self._successor
-                else:
-                    nextSuccessor = self.closestPrecedingChord(guid)
-                    return nextSuccessor.locateSuccessor(guid)
+            try:
+                if self._successor.guid != guid:
+                    if self.inInterval("Close", guid, self._guid, self._successor.guid):
+                        return self._successor
+                    else:
+                        nextSuccessor = self.closestPrecedingChord(guid)
+                        return nextSuccessor.locateSuccessor(guid)
+            except Exception as e:
+                Logger.log(str(e))
 
     def readMetaData(self):
         m = hashlib.md5()
         m.update("MetaData".encode('utf-8'))
         meta = int(m.hexdigest(), 16)
-        #jread = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'r')
         jread = open(constant.USB_DIR+str(meta), 'r')
         jsonRead = json.load(jread)
         return jsonRead["metadata"]
@@ -283,7 +305,6 @@ class Chord(object):
         m = hashlib.md5()
         m.update("MetaData".encode('utf-8'))
         meta = int(m.hexdigest(), 16)
-        #f = open(str(self.locateSuccessor(meta).guid) + "/repository/"+str(meta), 'w')
         f = open(constant.USB_DIR+str(meta), 'w')
         metadata = {}
         metadata['metadata'] = rawData
@@ -312,10 +333,6 @@ class Chord(object):
         fileInfo['Pages'] = pages
         Logger.log("New File: Flag 2")
         return fileInfo
-##        metadata.append(fileInfo)
-##        Logger.log("New File: Flag 9")
-##        self.writeMetaData(metadata)
-##        Logger.log("New File: Flag 10")
 
     def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
         try:
@@ -323,6 +340,7 @@ class Chord(object):
             m = hashlib.md5()
             m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
             Logger.log("Chain Encrpytion Flag 2")
+            Logger.log("Chain Encryption locate: " + str(int(m.hexdigest(), 16)))
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
             Logger.log("Chain Encrpytion Flag 3")
             if count == constant.MAX_CHAIN_ENCRYPTION:
@@ -458,16 +476,16 @@ class Chord(object):
     def removePage(self, getGuid):
         os.remove(str(self._guid) + "\\repository\\" + str(getGuid))
 
-    def delete(self, file):
-        metadata = self.readMetaData()
-        for x in metadata:
-            if x['File Name'] == file:
-                for y in x['Pages']:
-                    chordGet = self.locateSuccessor(y['Guid'])
-                    chordGet.removePage(y['Guid'])
-                metadata.remove(x)
-                self.writeMetaData(metadata)
-                break;
+##    def delete(self, file):
+##        metadata = self.readMetaData()
+##        for x in metadata:
+##            if x['File Name'] == file:
+##                for y in x['Pages']:
+##                    chordGet = self.locateSuccessor(y['Guid'])
+##                    chordGet.removePage(y['Guid'])
+##                metadata.remove(x)
+##                self.writeMetaData(metadata)
+##                break;
 
     def ls(self):
         metadata = self.readMetaData()
