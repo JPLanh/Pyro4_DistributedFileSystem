@@ -13,15 +13,27 @@ def dataEncrypt(message, encKey, hMacKey):
     Logger.log("Encryption Data Encrypt: 1")
     if len(encKey) == constant.KEY_BYTE_SIZE:
         if len(hMacKey) == constant.KEY_BYTE_SIZE:
+            print(message)
+            Logger.log("Encryption Data Encrypt: 2")
             IV = os.urandom(constant.IV_BYTE_SIZE)
+            Logger.log("Encryption Data Encrypt: 3")
             cipher = Cipher(algorithms.AES(encKey), modes.CBC(IV), backend=default_backend())
+            Logger.log("Encryption Data Encrypt: 4")
             cipherEncrypt = cipher.encryptor()
+            Logger.log("Encryption Data Encrypt: 5")
             pad = padding.PKCS7(constant.PADDING_BLOCK_SIZE).padder()
+            Logger.log("Encryption Data Encrypt: 6")
             cipherText = pad.update(message) + pad.finalize()
+            Logger.log("Encryption Data Encrypt: 7")
             cipherText = cipherEncrypt.update(cipherText) + cipherEncrypt.finalize()
+            Logger.log("Encryption Data Encrypt: 8")
             hTag = hmac.HMAC(hMacKey, hashes.SHA256(), backend=default_backend())
+            Logger.log("Encryption Data Encrypt: 9")
             hTag.update(cipherText)
+            Logger.log("Encryption Data Encrypt: 10")
             hTag = hTag.finalize()
+            Logger.log("Encryption Data Encrypt: 11")
+            print(cipherText)
             return cipherText, IV, hTag
 
 def chainEncryption(message, tag, encKey, hMacKey):

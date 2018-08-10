@@ -338,8 +338,9 @@ class Chord(object):
         try:
             Logger.log("Chain Encrpytion Flag 1")
             m = hashlib.md5()
-            m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
             Logger.log("Chain Encrpytion Flag 2")
+            m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
+            Logger.log("Chain Encrpytion Flag 3")
             Logger.log("Chain Encryption locate: " + str(int(m.hexdigest(), 16)))
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
             Logger.log("Chain Encrpytion Flag 3")
@@ -378,13 +379,15 @@ class Chord(object):
                 if count == 1:
                     for x in chainEncryption:
                         if x["Set"] == count-1:
+                            print("first count")
                             RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(prevKey))
                 else:                
                     for y in self.keychain:
                         if y["Chord"] == prevKey:
+                            print("The rest")
                             for x in chainEncryption:
                                 if x["Set"] == count-1:
-                                    RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
+                                    RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(y["Key"]))
                 newSet["Set"] = count
                 newSet["RSACipher"] = RSACipher
                 newSet["IV"] = IV
