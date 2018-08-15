@@ -87,12 +87,23 @@ def prompt(chord):
             if len(choiceSplit) == 3:
                 joinRing(chord, choiceSplit[1], str(choiceSplit[2]))
         elif choiceSplit[0].lower() == "del":
-            fileName = getChoice[4:]
-            chord.delete(fileName)
+            chord.delete(getChoice[4:])
         elif choiceSplit[0].lower() == "down":
-            fileName = getChoice[5:]
-            download(chord, fileName)
+            download(chord, getChoice[5:])
     input("Press enter to continue")
+
+def delete(chord, fileName):
+    try:
+        tempMetaData = readMetaData()
+        for x in tempMetaData:
+            if x['File Name'] == fileName:
+                for y in x['Pages']:
+                    locateChord = chord.locateSuccessor(y['Guid'])
+                    locateChord.removePage(y['Guid'])
+                tempMetaData.remove(x)
+                writeMetaData(tempMetaData)
+    except Exception as e:
+        print(str(e))
 
 def upload(chord, fileName):
     os.path.isfile(fileName)
@@ -130,66 +141,49 @@ def upload(chord, fileName):
     tempMetaData.append(fileInfo)
     writeMetaData(tempMetaData)
 
-    
-##def upload(chord, fileName):
-##    try:
-##        print("Upload Flag 1:")
-##        File = os.path.isfile(fileName)
-##        print("Upload Flag 2:")
-##        tempMetaData = readMetaData()                
-##        print("Upload Flag 3:")
-##        print(File)
-##        tempMetaData.append(newFile(fileName))
-##        print("Flag 4")
-##        writeMetaData(tempMetaData)
-##        print("Flag 5")
-##        progress = 0
-##        f = open (fileName, 'rb')
-##        data = f.read()
-##        f.close()
-##        newPage = {}
-##        while progress < 100:
-##            m = hashlib.md5()
-##            IPGet = file + ":" + str(x['Total Pages'])
-##            m.update(IPGet.encode('utf-8'))
-##            newPage["Page"] = x['Total Pages']
-##            x['Total Pages'] += 1
-##            print("Flag 6")
-##            chord.append2(int(m.hexdigest(), 16))
-###            progress = chord.append(fileName)
-##            os.system('cls')
-##            if progress == 100:
-##                print("Upload completed")
-##                break;
-##            print("Uploading, please wait: %s " %progress)                    
-##    except Exception as e:
-##        print(e)
-
 def download(chord, fileName):    
-    if chord.fileExist(fileName):
-        progress = 0
-        count = 0
-        if not os.path.exists("./Download"):
-            os.makedirs("./Download")
-        fileNameCrop, fileExtCrop = os.path.splitext(fileName)
-        fileCount = 0
-        file = "./Download/"+fileName
-        while os.path.isfile(file):
-            file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
-            fileCount += 1
-        f = open(file, 'wb+')
-        f.close()
-        print("Preparing file for download, please wait")
-        while progress < 100:
-            progress = chord.download(fileName, count, file)
-            os.system('cls')
-            if progress == None:
-                print("Download completed")
-                break
-            count += 1
-            print("Download, please wait: %s " %progress)
-    else:
-        print("Unable to locate file in the system")
+    metaData = readMetaData()
+    for x in metaData:
+        if x['File Name'] == fileName:
+            if not os.path.exists("./Download"):
+                os.makedirs("./Download")
+                fileNameCrop, fileExtCrop = os.path.splitext(fileName)
+            while os.path.isfile(file):
+                file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
+                fileCount += 1
+            f = open(file, 'wb+')
+            f.close()
+            for y in x['Pages']:
+                f.open(file, 'wb')
+                f.write(chord.download(x['File Name'], y['Guid'], y['Page'], b64encode(reversed(y['RSAInfo'])).decode('UTF-8')))
+                f.close()
+                           
+def downloadOld(chord, fileName):    
+    metaData = readMetaData()
+    for x in metaData:
+        if x['File Name'] == fileName:
+            pages = x['Total Pages']
+            progress = 0
+            count = 0
+            if not os.path.exists("./Download"):
+                os.makedirs("./Download")
+            fileNameCrop, fileExtCrop = os.path.splitext(fileName)
+            fileCount = 0
+            file = "./Download/"+fileName
+            while os.path.isfile(file):
+                file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
+                fileCount += 1
+            f = open(file, 'wb+')
+            f.close()
+            print("Preparing file for download, please wait")
+            while progress < 100:
+                progress = chord.download(fileName, count, file)
+                os.system('cls')
+                if progress == None:
+                    print("Download completed")
+                    break
+                count += 1
+                print("Download, please wait: %s " %progress)
 
 def showDirectory(chord):
     try:
