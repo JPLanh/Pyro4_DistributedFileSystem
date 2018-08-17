@@ -90,6 +90,8 @@ def prompt(chord):
             chord.delete(getChoice[4:])
         elif choiceSplit[0].lower() == "down":
             download(chord, getChoice[5:])
+        elif choiceSplit[0].lower() == "shutdown":
+            chord.shutDown(chord)
     input("Press enter to continue")
 
 def delete(chord, fileName):

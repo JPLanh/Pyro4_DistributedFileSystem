@@ -31,6 +31,7 @@ class Chord(object):
         self.finger = []
         self.nextFinger = 0
         self.keychain = []
+        self.active = 1
         for i in range(0, self.M+1):
             self.finger.append(None)
         thread1 = looping(self)
@@ -81,7 +82,7 @@ class Chord(object):
                     self._successor.keyEstablish(self, self._successor, self._guid)
                     return ("Connected to %s:%s (%s)" %(self._successor.ip, self._successor.port, chordGet.guid))
         except Exception as e:
-            Logger.log(str(e))
+            print(str(e))
 
     def echo(self, message):
         print(message)
@@ -108,77 +109,53 @@ class Chord(object):
         return b64encode(privPem).decode('UTF-8'), b64encode(pubPem).decode('UTF-8')
 
     def keyEstablish(self, predecessorChord, currentChord, getGuid):
-        Logger.log("keyEstablish: Flag 1")
         for x in self.keychain:
-            Logger.log("keyEstablish: Flag 2")
             if x["Chord"] == getGuid:
-                Logger.log("keyEstablish: Flag 3")
                 break
-        Logger.log("keyEstablish: Flag 4")
         predecessorChord.exchangeKeyTwo(predecessorChord, currentChord)
         
     def exchangeKeyTwo(self, currentChord, nextChord, exchanged = False):
-        Logger.log("ExchangeKey: Flag 1")
-        print("ExchangeKey: Flag 1")
-        print(nextChord)
-        print(currentChord)
-        print("ExchangeKey: Flag 2")
         f=open(constant.CHORD_PRIV_PEM, 'rb')
-        Logger.log("ExchangeKey: Flag 2")
         private_key = serialization.load_pem_private_key(
             f.read(),
             password=None,
             backend=default_backend()
         )
-        Logger.log("ExchangeKey: Flag 3")
         privPem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption()
         )
-        Logger.log("ExchangeKey: Flag 4")
         f.close()
         nextChord.addKey(currentChord, b64encode(privPem).decode('UTF-8'))
-        Logger.log("ExchangeKey: Flag 5")
         if not exchanged:                
             nextChord.exchangeKeyTwo(nextChord, currentChord, True)
             if currentChord.guid != nextChord.successor.guid:
                 nextChord.exchangeKeyTwo(currentChord, nextChord._successor)
         
     def exchangeKey(self, currentChord, nextChord, exchanged = False):
-        Logger.log("ExchangeKeY: Start")
-        print(nextChord)
-        print(currentChord)
         if nextChord.hasKey(currentChord) == "False":
-            Logger.log("ExchangeKey: Flag 1")
             f=open(constant.CHORD_PRIV_PEM, 'rb')
-            Logger.log("ExchangeKey: Flag 2")
             private_key = serialization.load_pem_private_key(
                 f.read(),
                 password=None,
                 backend=default_backend()
             )
-            Logger.log("ExchangeKey: Flag 3")
             privPem = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption()
             )
-            Logger.log("ExchangeKey: Flag 4")
             f.close()
             nextChord.addKey(currentChord, b64encode(privPem).decode('UTF-8'))
-            Logger.log("ExchangeKey: Flag 5")
             if not exchanged:                
                 nextChord.exchangeKey(nextChord, currentChord, True)
                 if currentChord.guid != nextChord.successor.guid:
                     return nextChord.exchangeKey(currentChord, nextChord.successor)
 
     def hasKey(self, chordGet):
-        Logger.log("HasKey: Flag 1")
         for x in self.keychain:
-            print(x["Chord"])
             if x["Chord"] == chordGet.guid:
-                Logger.log("HasKey: Flag 2")
                 return "True"
         return "False"
     
@@ -190,7 +167,7 @@ class Chord(object):
 
     def keyPrint(self):
         for x in self.keychain:
-            Logger.log(str(x))        
+            print(str(x))        
 
     def stabilize(self):
         if self._successor != None:
@@ -248,12 +225,16 @@ class Chord(object):
                 print(i.guid)
 
     def closestPrecedingChord(self, guid):
+        print("In closest proceeding chord")
+        print("guid: " + guid + " self: " + self._guid)
         if guid != self._guid:
             i = self.M - 1;
             while i >= 0:
+                print(str(i))
                 if self.inInterval("Open", self.finger[i].guid, self._guid, guid):
                     if self.finger[i].guid != guid:
                         return self.finger[i]
+                i -= 1
             return self._successor
 
     def simplePrint(self):
@@ -276,10 +257,12 @@ class Chord(object):
                     if self.inInterval("Close", guid, self._guid, self._successor.guid):
                         return self._successor
                     else:
-                        nextSuccessor = self.closestPrecedingChord(guid)
+                        print("Locate 2")
+                        nextSuccessor = self._successor.closestPrecedingChord(guid)
+                        print(nextSuccessor)
                         return nextSuccessor.locateSuccessor(guid)
             except Exception as e:
-                Logger.log(str(e))
+                print(str(e))
 
     def readMetaData(self):
         m = hashlib.md5()
@@ -300,15 +283,15 @@ class Chord(object):
         f.close()
 
     def ringAround(self, initial, count):
+        print(self.simplePrint())
+        if self.guid == self._successor.guid:
+            return 1
         if self.guid != initial.guid:
             return self._successor.ringAround(initial, count+1)
-        elif self.guid != self._successor:
-            return 1
         else:
             return count            
         
     def newFile(self, file):
-        Logger.log("New File: Flag 1")
         f = open(file, 'rb')
         data = f.read()
         f.close()
@@ -319,17 +302,22 @@ class Chord(object):
         fileInfo['File Size'] = 0
         pages = []
         fileInfo['Pages'] = pages
-        Logger.log("New File: Flag 2")
         return fileInfo
 
     def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
         try:
+            print("Encrypting focus : count = " + str(count))
             m = hashlib.md5()
+            print("Ready?")
             m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
+            print(str(int(m.hexdigest(), 16)))
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
+            print("Reach")
             if count == constant.MAX_CHAIN_ENCRYPTION:
+                print("Count = max")
                 return str(int(m.hexdigest(), 16)), data, chainEncryption
             elif count == 0:
+                print("Count = 0")
                 newSet = {}
                 RSACipher, cipherText, IV, tag = Encryptor.initialize(data)
                 newSet["Set"] = count
@@ -351,26 +339,31 @@ class Chord(object):
                 )
                 return getChord.chainEncrypt(fileName, b64encode(cipherText).decode('utf-8'), count + 1, chainEncryption, page, b64encode(privPem).decode('utf-8'))
             else:
+                print("Encryption flag test 1")                
                 newSet = {}
                 getKey = None
                 if count == 1:
+                    print("Encryption flag test 2.1")
                     for x in chainEncryption:
                         if x["Set"] == count-1:
                             RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(prevKey))
-                else:                
+                else:
+                    print("Encryption flag test 2.2")
                     for y in self.keychain:
                         if y["Chord"] == prevKey:
                             for x in chainEncryption:
                                 if x["Set"] == count-1:
                                     RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(y["Key"]))
+                print("Encryption flag test 3")
                 newSet["Set"] = count
                 newSet["RSACipher"] = RSACipher
                 newSet["IV"] = IV
                 newSet["Tag"] = tag
                 chainEncryption.append(newSet)
+                print("Encryption flag test 4")
                 return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, page, self._guid)
         except Exception as e:
-            Logger.log(str(e))
+            print(str(e))
 
 ##    def chainDecryption(self, fileName, data, count, RSAInfo, page = False):
 ##        for x in RSAInfo:            
@@ -417,7 +410,7 @@ class Chord(object):
         return self.chainDecrypt(fileName, data, pageGet, 2, RSAInfo, True)
 
     def readData(self, guidGet):
-        return b64encode(open(guidGet 'rb')).decode('UTF-8')
+        return b64encode(open(guidGet, 'rb')).decode('UTF-8')
 
     def upload(self, fileName, message, totalPage):
         chainEncryption = []
@@ -476,6 +469,14 @@ class Chord(object):
             return count
         else:
             return self.findBinary(getSize/2, count+1)
+
+    def getServerStatus(self):
+        return self.active
+
+    def shutDown(self, master):
+        self.active = 0
+        if self != master:
+            self._successor.shutDown(master)
 
 class looping(threading.Thread):
     def __init__(self, chord):

@@ -10,29 +10,29 @@ import hashlib
 import Logger
 
 def dataEncrypt(message, encKey, hMacKey):
-    Logger.log("Encryption Data Encrypt: 1")
+    print("Encryption Data Encrypt: 1")
     if len(encKey) == constant.KEY_BYTE_SIZE:
         if len(hMacKey) == constant.KEY_BYTE_SIZE:
             print(message)
-            Logger.log("Encryption Data Encrypt: 2")
+            print("Encryption Data Encrypt: 2")
             IV = os.urandom(constant.IV_BYTE_SIZE)
-            Logger.log("Encryption Data Encrypt: 3")
+            print("Encryption Data Encrypt: 3")
             cipher = Cipher(algorithms.AES(encKey), modes.CBC(IV), backend=default_backend())
-            Logger.log("Encryption Data Encrypt: 4")
+            print("Encryption Data Encrypt: 4")
             cipherEncrypt = cipher.encryptor()
-            Logger.log("Encryption Data Encrypt: 5")
+            print("Encryption Data Encrypt: 5")
             pad = padding.PKCS7(constant.PADDING_BLOCK_SIZE).padder()
-            Logger.log("Encryption Data Encrypt: 6")
+            print("Encryption Data Encrypt: 6")
             cipherText = pad.update(message) + pad.finalize()
-            Logger.log("Encryption Data Encrypt: 7")
+            print("Encryption Data Encrypt: 7")
             cipherText = cipherEncrypt.update(cipherText) + cipherEncrypt.finalize()
-            Logger.log("Encryption Data Encrypt: 8")
+            print("Encryption Data Encrypt: 8")
             hTag = hmac.HMAC(hMacKey, hashes.SHA256(), backend=default_backend())
-            Logger.log("Encryption Data Encrypt: 9")
+            print("Encryption Data Encrypt: 9")
             hTag.update(cipherText)
-            Logger.log("Encryption Data Encrypt: 10")
+            print("Encryption Data Encrypt: 10")
             hTag = hTag.finalize()
-            Logger.log("Encryption Data Encrypt: 11")
+            print("Encryption Data Encrypt: 11")
             print(cipherText)
             return cipherText, IV, hTag
 
@@ -46,10 +46,14 @@ def chainEncryption(message, tag, encKey, hMacKey):
         cipherText, newIV, newHTag = dataEncrypt(message, newEncKey, newHMacKey)
         return cipherText, newIV, newHTag, newEncKey, newHMacKey
     except InvalidSignature:
-        Logger.log("Failed")
+        print("Failed")
         return None
     
 def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
+    print("RSACipher: " + RSACipher)
+    print("CipherText: " +cipherText)
+    print("IV: " + IV)
+    print("tag: " + tag)
     private_key = serialization.load_pem_private_key(
         prevKey,
         password=None,
@@ -89,20 +93,20 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
     return b64encode(RSACipher).decode('UTF-8'), b64encode(newCipher).decode('UTF-8'), b64encode(newIV).decode('UTF-8'), b64encode(newTag).decode('UTF-8')   
 
 def initialize(message):
-    Logger.log("Encryption Initalize: 1")
+    print("Encryption Initalize: 1")
     encKey = os.urandom(constant.KEY_BYTE_SIZE)
     hMacKey = os.urandom(constant.KEY_BYTE_SIZE)
-    Logger.log("Encryption Initalize: 2")
+    print("Encryption Initalize: 2")
     cipherText, IV, tag = dataEncrypt(b64decode(message), encKey, hMacKey)
-    Logger.log("Encryption Initalize: 3")
+    print("Encryption Initalize: 3")
     if cipherText != None:
         f=open(constant.CHORD_PUB_PEM, 'rb')
-        Logger.log("Encryption Initialize: 4")
+        print("Encryption Initialize: 4")
         public_key = serialization.load_pem_public_key(
             f.read(),
             backend=default_backend()
         )
-        Logger.log("Encryption Initialize: 5")
+        print("Encryption Initialize: 5")
 
         RSACipher = public_key.encrypt(
             encKey+hMacKey,
@@ -112,5 +116,5 @@ def initialize(message):
                 label=None
                 )
             )
-        Logger.log("Encryption Initialize: 6")
+        print("Encryption Initialize: 6")
         return RSACipher, cipherText, IV, tag
