@@ -32,6 +32,7 @@ class Chord(object):
         self.nextFinger = 0
         self.keychain = []
         self.active = 1
+        self.encryptionIndex = []
         for i in range(0, self.M+1):
             self.finger.append(None)
         thread1 = looping(self)
@@ -214,7 +215,7 @@ class Chord(object):
         else:
             if intType == "Open":
                 return guid > begin or guid < end
-            if intType == "Close":
+            elif intType == "Close":
                 return guid > begin or guid <= end
 
     def printFinger(self):
@@ -225,12 +226,9 @@ class Chord(object):
                 print(i.guid)
 
     def closestPrecedingChord(self, guid):
-        print("In closest proceeding chord")
-        print("guid: " + guid + " self: " + self._guid)
         if guid != self._guid:
             i = self.M - 1;
-            while i >= 0:
-                print(str(i))
+            while i > 0:
                 if self.inInterval("Open", self.finger[i].guid, self._guid, guid):
                     if self.finger[i].guid != guid:
                         return self.finger[i]
@@ -247,22 +245,22 @@ class Chord(object):
         files = os.listdir(str(self._guid) + "\\repository\\")
         for x in files:
             print(x)
-        
+
     def locateSuccessor(self, guid):
-        if guid == self._guid:
-            print ("Error it's the same shit")
-        else:
-            try:
+        try:
+            if guid == self._guid:
+                print ("Error it's the same shit")
+            else:
                 if self._successor.guid != guid:
                     if self.inInterval("Close", guid, self._guid, self._successor.guid):
                         return self._successor
                     else:
-                        print("Locate 2")
-                        nextSuccessor = self._successor.closestPrecedingChord(guid)
-                        print(nextSuccessor)
+                        nextSuccessor = self.closestPrecedingChord(guid)
                         return nextSuccessor.locateSuccessor(guid)
-            except Exception as e:
-                print(str(e))
+                else:
+                    print("Error, same guid")
+        except Exception as e:
+            print(str(e))
 
     def readMetaData(self):
         m = hashlib.md5()
@@ -305,65 +303,71 @@ class Chord(object):
         return fileInfo
 
     def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
-        try:
-            print("Encrypting focus : count = " + str(count))
-            m = hashlib.md5()
-            print("Ready?")
-            m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
-            print(str(int(m.hexdigest(), 16)))
-            getChord = self.locateSuccessor(int(m.hexdigest(), 16))
-            print("Reach")
-            if count == constant.MAX_CHAIN_ENCRYPTION:
-                print("Count = max")
-                return str(int(m.hexdigest(), 16)), data, chainEncryption
-            elif count == 0:
-                print("Count = 0")
-                newSet = {}
-                RSACipher, cipherText, IV, tag = Encryptor.initialize(data)
-                newSet["Set"] = count
-                newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-                newSet["IV"] = b64encode(IV).decode('utf-8')
-                newSet["Tag"] = b64encode(tag).decode('utf-8')
-                chainEncryption.append(newSet)
-
-                f=open(constant.PRIVATE_PEM, 'rb')
-                private_key = serialization.load_pem_private_key(
-                    f.read(),
-                    password=None,
-                    backend=default_backend()
-                )
-                privPem = private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption()
-                )
-                return getChord.chainEncrypt(fileName, b64encode(cipherText).decode('utf-8'), count + 1, chainEncryption, page, b64encode(privPem).decode('utf-8'))
-            else:
-                print("Encryption flag test 1")                
-                newSet = {}
-                getKey = None
-                if count == 1:
-                    print("Encryption flag test 2.1")
-                    for x in chainEncryption:
-                        if x["Set"] == count-1:
-                            RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(prevKey))
-                else:
-                    print("Encryption flag test 2.2")
-                    for y in self.keychain:
-                        if y["Chord"] == prevKey:
-                            for x in chainEncryption:
-                                if x["Set"] == count-1:
-                                    RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(y["Key"]))
-                print("Encryption flag test 3")
-                newSet["Set"] = count
-                newSet["RSACipher"] = RSACipher
-                newSet["IV"] = IV
-                newSet["Tag"] = tag
-                chainEncryption.append(newSet)
-                print("Encryption flag test 4")
-                return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, page, self._guid)
-        except Exception as e:
-            print(str(e))
+        encryptThread = encryptingProcess(self, fileName, data, count, chainEncryption, page, prevKey)
+        encryptThread.start()
+        self.encryptionIndex.append(encryptThread)
+##    def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
+##        try:
+##            print("Encrypting focus : count = " + str(count))
+##            m = hashlib.md5()
+##            print("Ready?")
+##            m.update((fileName + ":" + str(page) + ":" + str(count)).encode('utf-8'))
+##            print(str(int(m.hexdigest(), 16)))
+##            getChord = self.locateSuccessor(int(m.hexdigest(), 16), True)
+##            print("Reach")
+##            if count == constant.MAX_CHAIN_ENCRYPTION:
+##                print("Count = max")
+##                return str(int(m.hexdigest(), 16)), data, chainEncryption
+##            elif count == 0:
+##                print("Count = 0")
+##                newSet = {}
+##                RSACipher, cipherText, IV, tag = Encryptor.initialize(data)
+##                newSet["Set"] = count
+##                newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+##                newSet["IV"] = b64encode(IV).decode('utf-8')
+##                newSet["Tag"] = b64encode(tag).decode('utf-8')
+##                chainEncryption.append(newSet)
+##
+##                f=open(constant.PRIVATE_PEM, 'rb')
+##                private_key = serialization.load_pem_private_key(
+##                    f.read(),
+##                    password=None,
+##                    backend=default_backend()
+##                )
+##                privPem = private_key.private_bytes(
+##                    encoding=serialization.Encoding.PEM,
+##                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+##                    encryption_algorithm=serialization.NoEncryption()
+##                )
+##                print("Encryption flag test 4.1 done")
+##                return getChord.chainEncrypt(fileName, b64encode(cipherText).decode('utf-8'), count + 1, chainEncryption, page, b64encode(privPem).decode('utf-8'))
+##            else:
+##                print("Encryption flag test 1")                
+##                newSet = {}
+##                getKey = None
+##                if count == 1:
+##                    print("Encryption flag test 2.1")
+##                    for x in chainEncryption:
+##                        print(x)
+##                        if x["Set"] == count-1:
+##                            RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(prevKey))
+##                else:
+##                    print("Encryption flag test 2.2")
+##                    for y in self.keychain:
+##                        if y["Chord"] == prevKey:
+##                            for x in chainEncryption:
+##                                if x["Set"] == count-1:
+##                                    RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(y["Key"]))
+##                print("Encryption flag test 3")
+##                newSet["Set"] = count
+##                newSet["RSACipher"] = RSACipher
+##                newSet["IV"] = IV
+##                newSet["Tag"] = tag                
+##                chainEncryption.append(newSet)
+##                print("Encryption flag test 4.2")
+##                return getChord.chainEncrypt(fileName, cipherText, count + 1, chainEncryption, page, self._guid)
+##        except Exception as e:
+##            print(str(e))
 
 ##    def chainDecryption(self, fileName, data, count, RSAInfo, page = False):
 ##        for x in RSAInfo:            
@@ -414,10 +418,11 @@ class Chord(object):
 
     def upload(self, fileName, message, totalPage):
         chainEncryption = []
-        fileGuid, cipherText, RSAInfo = self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage)
-        chordGet = self.locateSuccessor(int(fileGuid))
-        chordGet.createPage(cipherText, int(fileGuid))
-        return fileGuid, RSAInfo
+##        fileGuid, cipherText, RSAInfo = self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage)
+        self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage)
+        m = hashlib.md5()
+        m.update((fileName + ":" + str(totalPage) + ":2").encode('utf-8'))
+        return(str(int(m.hexdigest(), 16)))
         
     def append(self, file):
         metadata = self.readMetaData()
@@ -450,8 +455,14 @@ class Chord(object):
                 self.writeMetaData(metadata)
                 return round((byteRead / len(data)) * 100)
 
+    def createPage(self, getMessage, getGuid):
+        f = open(str(self._guid) + "/repository/" + str(getGuid), 'wb+')
+        f.write(b64decode(getMessage))
+        f.close()
+        print(str(getGuid) + " has been created")
+
     def removePage(self, guidGet):
-        os.remove(guidGet)
+        os.remove(str(self._guid) + "\\repository\\" + str(getGuid))
             
     def ls(self):
         metadata = self.readMetaData()
@@ -478,6 +489,73 @@ class Chord(object):
         if self != master:
             self._successor.shutDown(master)
 
+class encryptingProcess(threading.Thread):
+    def __init__(self, chord, fileName, data, count, chainEncryption, page, prevKey = None):
+        threading.Thread.__init__(self)
+        self.chord = chord
+        self.fileName = fileName
+        self.data = data
+        self.count = count
+        self.chainEncryption = chainEncryption
+        self.page = page
+        self.prevKey = prevKey
+
+    def run(self):    
+        try:
+            print("Encrypting focus : count = " + str(self.count))
+            m = hashlib.md5()
+            m.update((self.fileName + ":" + str(self.page) + ":" + str(self.count)).encode('utf-8'))
+            getChord = self.chord.locateSuccessor(int(m.hexdigest(), 16))
+            if self.count == constant.MAX_CHAIN_ENCRYPTION:
+                print("Count = max")
+                getChord.createPage(self.data, int(int(m.hexdigest(), 16)))
+            elif self.count == 0:
+                print("Count = 0")
+                newSet = {}
+                RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
+                newSet["Set"] = self.count
+                newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+                newSet["IV"] = b64encode(IV).decode('utf-8')
+                newSet["Tag"] = b64encode(tag).decode('utf-8')
+                self.chainEncryption.append(newSet)
+
+                f=open(constant.PRIVATE_PEM, 'rb')
+                private_key = serialization.load_pem_private_key(
+                    f.read(),
+                    password=None,
+                    backend=default_backend()
+                )
+                privPem = private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption()
+                )
+                getChord.chainEncrypt(self.fileName, b64encode(cipherText).decode('utf-8'), self.count + 1, self.chainEncryption, self.page, b64encode(privPem).decode('utf-8'))
+            else:
+                print("Encryption flag test 1")                
+                newSet = {}
+                getKey = None
+                if self.count == 1:
+                    print("Encryption flag test 2.1")
+                    for x in self.chainEncryption:
+                        if x["Set"] == self.count-1:
+                            RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(self.data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(self.prevKey))
+                else:
+                    print("Encryption flag test 2.2")
+                    for y in self.chord.keychain:
+                        if y["Chord"] == self.prevKey:
+                            for x in self.chainEncryption:
+                                if x["Set"] == self.count-1:
+                                    RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(self.data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
+                newSet["Set"] = self.count
+                newSet["RSACipher"] = RSACipher
+                newSet["IV"] = IV
+                newSet["Tag"] = tag                
+                self.chainEncryption.append(newSet)
+                getChord.chainEncrypt(self.fileName, cipherText, self.count + 1, self.chainEncryption, self.page, self.chord._guid)
+        except Exception as e:
+            print(str(e))
+        
 class looping(threading.Thread):
     def __init__(self, chord):
         threading.Thread.__init__(self)

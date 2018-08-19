@@ -136,10 +136,10 @@ def upload(chord, fileName):
             newPage['Size'] = len(data) - fileInfo['File Size']
             fileInfo['File Size'] += newPage['Size']
 #        chordGet = chord.locateSuccessor(int(m.hexdigest(), 16))
-        fileGuid, RSAInfo = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'])
+        fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'])
         newPage["Guid"] = fileGuid
-        newPage["RSAInfo"] = RSAInfo
         fileInfo['Pages'].append(newPage)
+        print("Partial upload complete")
     tempMetaData.append(fileInfo)
     writeMetaData(tempMetaData)
 
