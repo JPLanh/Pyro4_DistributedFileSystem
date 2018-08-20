@@ -12,6 +12,7 @@ import Decryptor
 import time
 import Logger
 import glob
+import datetime
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -37,6 +38,7 @@ class Chord(object):
             self.finger.append(None)
         thread1 = looping(self)
         thread1.start()
+        print("Guid: " + str(guid))
 
     @property
     def ip(self):
@@ -302,8 +304,8 @@ class Chord(object):
         fileInfo['Pages'] = pages
         return fileInfo
 
-    def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
-        encryptThread = encryptingProcess(self, fileName, data, count, chainEncryption, page, prevKey)
+    def chainEncrypt(self, fileName, data, count, chainEncryption, page, token, prevKey = None):
+        encryptThread = encryptingProcess(self, fileName, data, count, chainEncryption, page, token, prevKey)
         encryptThread.start()
         self.encryptionIndex.append(encryptThread)
 ##    def chainEncrypt(self, fileName, data, count, chainEncryption, page, prevKey = None):
@@ -416,10 +418,10 @@ class Chord(object):
     def readData(self, guidGet):
         return b64encode(open(guidGet, 'rb')).decode('UTF-8')
 
-    def upload(self, fileName, message, totalPage):
+    def upload(self, fileName, message, totalPage, token):
         chainEncryption = []
 ##        fileGuid, cipherText, RSAInfo = self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage)
-        self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage)
+        self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage, token)
         m = hashlib.md5()
         m.update((fileName + ":" + str(totalPage) + ":2").encode('utf-8'))
         return(str(int(m.hexdigest(), 16)))
@@ -490,7 +492,7 @@ class Chord(object):
             self._successor.shutDown(master)
 
 class encryptingProcess(threading.Thread):
-    def __init__(self, chord, fileName, data, count, chainEncryption, page, prevKey = None):
+    def __init__(self, chord, fileName, data, count, chainEncryption, page, token, prevKey = None):
         threading.Thread.__init__(self)
         self.chord = chord
         self.fileName = fileName
@@ -499,6 +501,7 @@ class encryptingProcess(threading.Thread):
         self.chainEncryption = chainEncryption
         self.page = page
         self.prevKey = prevKey
+        self.token = token
 
     def run(self):    
         try:

@@ -72,6 +72,8 @@ def prompt(chord):
             showDirectory(chord)
         elif choiceSplit[0].lower() == "key":
             chord.keyPrint()
+        elif choiceSplit[0].lower() == "sync":
+            sync()
         elif choiceSplit[0].lower() == "ring":
             chord.successor.ringAround(chord, 0)
         elif choiceSplit[0].lower() == "finger":
@@ -93,6 +95,7 @@ def prompt(chord):
         elif choiceSplit[0].lower() == "shutdown":
             chord.shutDown(chord)
     input("Press enter to continue")
+    
 
 def delete(chord, fileName):
     try:
@@ -107,14 +110,21 @@ def delete(chord, fileName):
     except Exception as e:
         print(str(e))
 
+def sync(chord):
+    tempMetaData = readMetaData()
+    ##WE NEED TO GET THE RSAINFO somehow
+            
 def upload(chord, fileName):
     os.path.isfile(fileName)
     tempMetaData = readMetaData()
     f = open(fileName, 'rb')
     data = f.read()
+    m = hashlib.md5()
+    m.update((fileName + ":::" + str(datetime.datetime.now())).encode('utf-8'))
     f.close()
     fileInfo = {}
     fileInfo['File Name'] = fileName
+    fileInfo['Token'] = int(m.hexdigest(), 16)
     fileInfo['Total Pages'] = 0
     fileInfo['Page Size'] = chord.calculateSize(len(data))
     fileInfo['File Size'] = 0
@@ -136,7 +146,7 @@ def upload(chord, fileName):
             newPage['Size'] = len(data) - fileInfo['File Size']
             fileInfo['File Size'] += newPage['Size']
 #        chordGet = chord.locateSuccessor(int(m.hexdigest(), 16))
-        fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'])
+        fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'], fileInfo['Token'])
         newPage["Guid"] = fileGuid
         fileInfo['Pages'].append(newPage)
         print("Partial upload complete")
