@@ -24,9 +24,12 @@ def dataEncrypt(message, encKey, hMacKey):
             return cipherText, IV, hTag
 
 def chainEncryption(message, tag, encKey, hMacKey):
+    print("Debug flag 1.2.1")
     checkTag = hmac.HMAC(hMacKey, hashes.SHA256(), backend=default_backend())
     checkTag.update(message)
+    print("Debug flag 1.2.2")
     try:
+        print("Debug flag 1.2.3")
         checkTag.verify(tag)
         newEncKey = os.urandom(constant.KEY_BYTE_SIZE)
         newHMacKey = os.urandom(constant.KEY_BYTE_SIZE)
@@ -37,7 +40,7 @@ def chainEncryption(message, tag, encKey, hMacKey):
         return None
     
 def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
-
+    Logger.printLog("Chain Initialize Flag 1")
     private_key = serialization.load_pem_private_key(
         prevKey,
         password=None,
@@ -53,11 +56,14 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
         )
     )
     
+    Logger.printLog("Chain Initialize Flag 2")
     encKey = key[:32]
     hMacKey = key[32:]
 
+    Logger.printLog("Chain Initialize Flag 3")
     newCipher, newIV, newTag, newEncKey, newHMacKey = chainEncryption(cipherText, tag, encKey, hMacKey)
 
+    Logger.printLog("Chain Initialize Flag 4")
     f=open(constant.CHORD_PUB_PEM, 'rb')
     public_key = serialization.load_pem_public_key(
         f.read(),
@@ -77,15 +83,20 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
     return b64encode(RSACipher).decode('UTF-8'), b64encode(newCipher).decode('UTF-8'), b64encode(newIV).decode('UTF-8'), b64encode(newTag).decode('UTF-8')   
 
 def initialize(message):
+    print("Debug flag 1.1")
     encKey = os.urandom(constant.KEY_BYTE_SIZE)
     hMacKey = os.urandom(constant.KEY_BYTE_SIZE)
+    print("Debug flag 1.2")
     cipherText, IV, tag = dataEncrypt(b64decode(message), encKey, hMacKey)
+    print("Debug flag 1.3")
     if cipherText != None:
         f=open(constant.CHORD_PUB_PEM, 'rb')
         public_key = serialization.load_pem_public_key(
             f.read(),
             backend=default_backend()
         )
+        print("Debug flag 1.4")
+        print(public_key)
 
         RSACipher = public_key.encrypt(
             encKey+hMacKey,
@@ -95,4 +106,6 @@ def initialize(message):
                 label=None
                 )
             )
+        print("Debug flag 1.5")
+
         return RSACipher, cipherText, IV, tag

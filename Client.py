@@ -6,6 +6,7 @@ import os
 import ctypes
 import time
 import json
+import datetime
 import constant
 from Chord import Chord
 from base64 import b64encode, b64decode
@@ -25,29 +26,32 @@ def register(chord):
     f.close()
         
     metaData = {}
+    tokenList = []
     fileList = []
     m = hashlib.md5()
     m.update("MetaData".encode('utf-8'))
-    metaData["metadata"] = fileList  
+    metaData['tokens'] = tokenList
+    metaData["files"] = fileList  
     f = open(constant.USB_DIR+str(int(m.hexdigest(), 16)), 'w')
     json.dump(metaData, f)
     f.close()
 
-def readMetaData():
+def readMetaData(dataReader):
     m = hashlib.md5()
     m.update("MetaData".encode('utf-8'))
     meta = int(m.hexdigest(), 16)
     jread = open(constant.USB_DIR+str(meta), 'r')
     jsonRead = json.load(jread)
-    return jsonRead["metadata"]
+    jread.close()
+    return jsonRead[dataReader]
 
-def writeMetaData(rawData):
+def writeMetaData(dataReader, rawData):
     m = hashlib.md5()
     m.update("MetaData".encode('utf-8'))
     meta = int(m.hexdigest(), 16)
     jread = open(constant.USB_DIR+str(meta), 'w')
     metadata = {}
-    metadata['metadata'] = rawData
+    metadata[dataReader] = rawData
     json.dump(metadata, jread)
     jread.close()
       
@@ -99,62 +103,63 @@ def prompt(chord):
 
 def delete(chord, fileName):
     try:
-        tempMetaData = readMetaData()
+        tempMetaData = readMetaData("files")
         for x in tempMetaData:
             if x['File Name'] == fileName:
                 for y in x['Pages']:
                     locateChord = chord.locateSuccessor(y['Guid'])
                     locateChord.removePage(y['Guid'])
                 tempMetaData.remove(x)
-                writeMetaData(tempMetaData)
+                writeMetaData('files', tempMetaData)
     except Exception as e:
         print(str(e))
 
 def sync(chord):
-    tempMetaData = readMetaData()
+    tempMetaData = readMetaData("tokens")
     ##WE NEED TO GET THE RSAINFO somehow
             
 def upload(chord, fileName):
     os.path.isfile(fileName)
-    tempMetaData = readMetaData()
+    tempMetaData = readMetaData("files")
     f = open(fileName, 'rb')
     data = f.read()
-    m = hashlib.md5()
-    m.update((fileName + ":::" + str(datetime.datetime.now())).encode('utf-8'))
+    tokenDigest = hashlib.md5()
+    tokenDigest.update((fileName + ":::" + str(datetime.datetime.now())).encode('utf-8'))
     f.close()
     fileInfo = {}
     fileInfo['File Name'] = fileName
-    fileInfo['Token'] = int(m.hexdigest(), 16)
+    fileInfo['Token'] = int(tokenDigest.hexdigest(), 16)
     fileInfo['Total Pages'] = 0
     fileInfo['Page Size'] = chord.calculateSize(len(data))
     fileInfo['File Size'] = 0
     pages = []
     fileInfo['Pages'] = pages
-    while fileInfo['File Size'] < len(data):
-        newPage = {}
-        m = hashlib.md5()
-        IPGet = fileName + ":" + str(fileInfo['Total Pages'])
-        m.update(IPGet.encode('utf-8'))
-        newPage["Page"] = fileInfo['Total Pages']
-        fileInfo['Total Pages'] += 1
-        if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
-            dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
-            newPage['Size'] = fileInfo['Page Size']
-            fileInfo['File Size'] += fileInfo['Page Size']
-        else:
-            dataSegment = data[fileInfo['File Size']:len(data)]
-            newPage['Size'] = len(data) - fileInfo['File Size']
-            fileInfo['File Size'] += newPage['Size']
+   # while fileInfo['File Size'] < len(data):
+    newPage = {}
+    m = hashlib.md5()
+    IPGet = fileName + ":" + str(fileInfo['Total Pages'])
+    m.update(IPGet.encode('utf-8'))
+    newPage["Page"] = fileInfo['Total Pages']
+    fileInfo['Total Pages'] += 1
+    if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
+        dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
+        newPage['Size'] = fileInfo['Page Size']
+        fileInfo['File Size'] += fileInfo['Page Size']
+    else:
+        dataSegment = data[fileInfo['File Size']:len(data)]
+        newPage['Size'] = len(data) - fileInfo['File Size']
+        fileInfo['File Size'] += newPage['Size']
 #        chordGet = chord.locateSuccessor(int(m.hexdigest(), 16))
-        fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'], fileInfo['Token'])
-        newPage["Guid"] = fileGuid
-        fileInfo['Pages'].append(newPage)
-        print("Partial upload complete")
+    fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'], fileInfo['Token'])
+    newPage["Guid"] = fileGuid
+    fileInfo['Pages'].append(newPage)
+    print("Partial upload complete")
+## end of indentation of the while loop
     tempMetaData.append(fileInfo)
-    writeMetaData(tempMetaData)
+    writeMetaData('files', tempMetaData)
 
 def download(chord, fileName):    
-    metaData = readMetaData()
+    metaData = readMetaData("files")
     for x in metaData:
         if x['File Name'] == fileName:
             if not os.path.exists("./Download"):
@@ -171,7 +176,7 @@ def download(chord, fileName):
                 f.close()
                            
 def downloadOld(chord, fileName):    
-    metaData = readMetaData()
+    metaData = readMetaData("files")
     for x in metaData:
         if x['File Name'] == fileName:
             pages = x['Total Pages']
@@ -199,7 +204,7 @@ def downloadOld(chord, fileName):
 
 def showDirectory(chord):
     try:
-        metadata = readMetaData()
+        metadata = readMetaData("files")
         for x in metadata:
             print("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
     except FileNotFoundError as e:

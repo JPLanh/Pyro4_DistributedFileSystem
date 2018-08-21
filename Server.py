@@ -91,5 +91,5 @@ if __name__ == "__main__":
             print("Unable to join")
 
     print("Finish Joining")
-    while chord.getServerStatus == 1:
+    while True:
         pass

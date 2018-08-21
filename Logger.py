@@ -8,7 +8,10 @@ def log(data):
         f = open("Logger.txt", 'w+')
     f.write("[" + str(datetime.now()) + "] " + data + "\n")
     f.close()
+
     
+def printLog(data):
+    print("[" + str(datetime.now()) + "] " + data)
 ##to catch and print out the exception error
 #    try:
 #       code here to catch
