@@ -36,22 +36,52 @@ def register(chord):
     json.dump(metaData, f)
     f.close()
 
-def readMetaData(dataReader):
+def readMetaData():
     m = hashlib.md5()
     m.update("MetaData".encode('utf-8'))
     meta = int(m.hexdigest(), 16)
     jread = open(constant.USB_DIR+str(meta), 'r')
     jsonRead = json.load(jread)
     jread.close()
-    return jsonRead[dataReader]
+    return jsonRead
+    
+def readMetaDataOld(dataReader):
+    m = hashlib.md5()
+    m.update("MetaData".encode('utf-8'))
+    meta = int(m.hexdigest(), 16)
+    jread = open(constant.USB_DIR+str(meta), 'r')
+    jsonRead = json.load(jread)
+    jread.close()
+    if dataReader == "all":
+        return jsonRead
+    else:
+        return jsonRead[dataReader]
 
-def writeMetaData(dataReader, rawData):
+def writeMetaData(data):
     m = hashlib.md5()
     m.update("MetaData".encode('utf-8'))
     meta = int(m.hexdigest(), 16)
     jread = open(constant.USB_DIR+str(meta), 'w')
-    metadata = {}
-    metadata[dataReader] = rawData
+    json.dump(data, jread)
+    jread.close()
+    
+def writeMetaDataOld(dataReader, rawData):
+    metadata = readMetaData("all")
+    m = hashlib.md5()
+    m.update("MetaData".encode('utf-8'))
+    meta = int(m.hexdigest(), 16)
+    jread = open(constant.USB_DIR+str(meta), 'w')
+    if dataReader == "files":
+        for x in metadata[dataReader]:
+            if x['File Name'] == rawData['File Name']:
+                print(rawData['Sync'])
+                metadata[dataReader].remove(x)
+                print("Remove from list")
+    elif dataReader == "tokens":
+        for x in metadata[dataReader]:
+            if x == rawData:
+                metadata[dataReader].remove(rawData)        
+    metadata[dataReader].append(rawData)
     json.dump(metadata, jread)
     jread.close()
       
@@ -77,7 +107,7 @@ def prompt(chord):
         elif choiceSplit[0].lower() == "key":
             chord.keyPrint()
         elif choiceSplit[0].lower() == "sync":
-            sync()
+            sync(chord)
         elif choiceSplit[0].lower() == "ring":
             chord.successor.ringAround(chord, 0)
         elif choiceSplit[0].lower() == "finger":
@@ -103,64 +133,74 @@ def prompt(chord):
 
 def delete(chord, fileName):
     try:
-        tempMetaData = readMetaData("files")
-        for x in tempMetaData:
+        tempMetaData = readMetaData()
+        for x in tempMetaData['files']:
             if x['File Name'] == fileName:
                 for y in x['Pages']:
                     locateChord = chord.locateSuccessor(y['Guid'])
                     locateChord.removePage(y['Guid'])
-                tempMetaData.remove(x)
-                writeMetaData('files', tempMetaData)
+                tempMetaData['files'].remove(x)
+                writeMetaData(tempMetaData)
     except Exception as e:
         print(str(e))
 
 def sync(chord):
-    tempMetaData = readMetaData("tokens")
-    ##WE NEED TO GET THE RSAINFO somehow
-            
+    tempMetaData = readMetaData()
+    for x in tempMetaData['tokens']:
+        for y in tempMetaData['files']:
+            if y['Sync'] == "No":
+                for z in y['Pages']:
+                    m = hashlib.md5()
+                    combo = str(z['Guid']) + ":" + str(x)
+                    m.update(combo.encode('UTF-8'))
+                    z['RSAInfo'] = chord.sync(str(int(m.hexdigest(), 16)))
+                y['Sync'] = "Yes"
+        tempMetaData['tokens'].remove(x)
+        writeMetaData(tempMetaData)
+
 def upload(chord, fileName):
     os.path.isfile(fileName)
-    tempMetaData = readMetaData("files")
+    tempMetaData = readMetaData()
     f = open(fileName, 'rb')
     data = f.read()
     tokenDigest = hashlib.md5()
     tokenDigest.update((fileName + ":::" + str(datetime.datetime.now())).encode('utf-8'))
+    tokenReceipt = int(tokenDigest.hexdigest(), 16)
     f.close()
     fileInfo = {}
     fileInfo['File Name'] = fileName
-    fileInfo['Token'] = int(tokenDigest.hexdigest(), 16)
     fileInfo['Total Pages'] = 0
+    fileInfo['Sync'] = "No"
     fileInfo['Page Size'] = chord.calculateSize(len(data))
     fileInfo['File Size'] = 0
     pages = []
     fileInfo['Pages'] = pages
-   # while fileInfo['File Size'] < len(data):
-    newPage = {}
-    m = hashlib.md5()
-    IPGet = fileName + ":" + str(fileInfo['Total Pages'])
-    m.update(IPGet.encode('utf-8'))
-    newPage["Page"] = fileInfo['Total Pages']
-    fileInfo['Total Pages'] += 1
-    if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
-        dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
-        newPage['Size'] = fileInfo['Page Size']
-        fileInfo['File Size'] += fileInfo['Page Size']
-    else:
-        dataSegment = data[fileInfo['File Size']:len(data)]
-        newPage['Size'] = len(data) - fileInfo['File Size']
-        fileInfo['File Size'] += newPage['Size']
-#        chordGet = chord.locateSuccessor(int(m.hexdigest(), 16))
-    fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'], fileInfo['Token'])
-    newPage["Guid"] = fileGuid
-    fileInfo['Pages'].append(newPage)
-    print("Partial upload complete")
-## end of indentation of the while loop
-    tempMetaData.append(fileInfo)
-    writeMetaData('files', tempMetaData)
+    while fileInfo['File Size'] < len(data):
+        newPage = {}
+        m = hashlib.md5()
+        IPGet = fileName + ":" + str(fileInfo['Total Pages'])
+        m.update(IPGet.encode('utf-8'))
+        newPage["Page"] = fileInfo['Total Pages']
+        fileInfo['Total Pages'] += 1
+        if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
+            dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
+            newPage['Size'] = fileInfo['Page Size']
+            fileInfo['File Size'] += fileInfo['Page Size']
+        else:
+            dataSegment = data[fileInfo['File Size']:len(data)]
+            newPage['Size'] = len(data) - fileInfo['File Size']
+            fileInfo['File Size'] += newPage['Size']
+        fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'], tokenReceipt)
+        newPage["Guid"] = fileGuid
+        fileInfo['Pages'].append(newPage)
+        print("Partial upload complete")
+    tempMetaData['tokens'].append(int(tokenDigest.hexdigest(), 16))
+    tempMetaData['files'].append(fileInfo)
+    writeMetaData(tempMetaData)
 
 def download(chord, fileName):    
-    metaData = readMetaData("files")
-    for x in metaData:
+    metaData = readMetaData()
+    for x in metaData['files']:
         if x['File Name'] == fileName:
             if not os.path.exists("./Download"):
                 os.makedirs("./Download")
@@ -204,8 +244,8 @@ def downloadOld(chord, fileName):
 
 def showDirectory(chord):
     try:
-        metadata = readMetaData("files")
-        for x in metadata:
+        metadata = readMetaData()
+        for x in metadata['files']:
             print("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
     except FileNotFoundError as e:
         print("USB not recognized, now aborting")
