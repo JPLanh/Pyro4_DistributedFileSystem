@@ -385,7 +385,7 @@ class Chord(object):
 
     def upload(self, fileName, message, totalPage, token):
         chainEncryption = []
-        self.chainEncrypt(fileName, message, 0, chainEncryption, totalPage, token)
+        self.chainEncrypt(fileName, message, 1, chainEncryption, totalPage, token)
         m = hashlib.md5()
         m.update((fileName + ":" + str(totalPage) + ":3").encode('utf-8'))
         return(str(int(m.hexdigest(), 16)))
@@ -464,28 +464,28 @@ class encryptingProcess(threading.Thread):
                     combo = str(int(m.hexdigest(), 16)) + ":" + str(self.token)
                     tokenHash.update(combo.encode('utf-8'))
                     getChord.createPage(self.data, int(int(m.hexdigest(), 16)), int(tokenHash.hexdigest(), 16), self.chainEncryption)
-                elif self.count == 0:
-                    Logger.log("page = " + str(self.page) + " count = 0")
-                    newSet = {}
-                    RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
-                    newSet["Set"] = self.count
-                    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-                    newSet["IV"] = b64encode(IV).decode('utf-8')
-                    newSet["Tag"] = b64encode(tag).decode('utf-8')
-                    self.chainEncryption.append(newSet)
-
-                    f=open(constant.PRIVATE_PEM, 'rb')
-                    private_key = serialization.load_pem_private_key(
-                        f.read(),
-                        password=None,
-                        backend=default_backend()
-                    )
-                    privPem = private_key.private_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-                        encryption_algorithm=serialization.NoEncryption()
-                    )
-                    getChord.chainEncrypt(self.fileName, b64encode(cipherText).decode('utf-8'), self.count + 1, self.chainEncryption, self.page, self.token, b64encode(privPem).decode('utf-8'))
+##                elif self.count == 0:
+##                    Logger.log("page = " + str(self.page) + " count = 0")
+##                    newSet = {}
+##                    RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
+##                    newSet["Set"] = self.count
+##                    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
+##                    newSet["IV"] = b64encode(IV).decode('utf-8')
+##                    newSet["Tag"] = b64encode(tag).decode('utf-8')
+##                    self.chainEncryption.append(newSet)
+##
+##                    f=open(constant.PRIVATE_PEM, 'rb')
+##                    private_key = serialization.load_pem_private_key(
+##                        f.read(),
+##                        password=None,
+##                        backend=default_backend()
+##                    )
+##                    privPem = private_key.private_bytes(
+##                        encoding=serialization.Encoding.PEM,
+##                        format=serialization.PrivateFormat.TraditionalOpenSSL,
+##                        encryption_algorithm=serialization.NoEncryption()
+##                    )
+##                    getChord.chainEncrypt(self.fileName, b64encode(cipherText).decode('utf-8'), self.count + 1, self.chainEncryption, self.page, self.token, b64encode(privPem).decode('utf-8'))
                 else:
                     Logger.log("page = " + str(self.page) + " count = " + str(self.count))
                     newSet = {}

@@ -201,9 +201,17 @@ def upload(chord, fileName):
             fileInfo['File Size'] += newPage['Size']
             print("during read 2.4")
         print("AfterRead")
-        fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'], tokenReceipt)
+        RSACipher, cipherText, IV, tag = Encryptor.initialize(dataSegment)
+        fileGuid = chord.upload(fileName, b64encode(cipherText).decode('UTF-8'), fileInfo['Total Pages'], tokenReceipt)
         print("Upload Complete")
         newPage["Guid"] = fileGuid
+        newPage["RSAInfo"] = []
+        newRSA = {}
+        newRSA["Set"] = 0
+        newRSA["RSACipher"] = RSACipher
+        newRSA["Tag"] = tag
+        newRSA["IV"] = IV
+        newPage["RSAInfo"].append(newRSA)
         fileInfo['Pages'].append(newPage)
         print("Partial upload complete")
     tempMetaData['tokens'].append(int(tokenDigest.hexdigest(), 16))
