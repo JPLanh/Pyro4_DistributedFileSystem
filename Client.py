@@ -45,18 +45,6 @@ def readMetaData():
     jsonRead = json.load(jread)
     jread.close()
     return jsonRead
-    
-def readMetaDataOld(dataReader):
-    m = hashlib.md5()
-    m.update("MetaData".encode('utf-8'))
-    meta = int(m.hexdigest(), 16)
-    jread = open(constant.USB_DIR+str(meta), 'r')
-    jsonRead = json.load(jread)
-    jread.close()
-    if dataReader == "all":
-        return jsonRead
-    else:
-        return jsonRead[dataReader]
 
 def writeMetaData(data):
     m = hashlib.md5()
@@ -65,27 +53,7 @@ def writeMetaData(data):
     jread = open(constant.USB_DIR+str(meta), 'w')
     json.dump(data, jread)
     jread.close()
-    
-def writeMetaDataOld(dataReader, rawData):
-    metadata = readMetaData("all")
-    m = hashlib.md5()
-    m.update("MetaData".encode('utf-8'))
-    meta = int(m.hexdigest(), 16)
-    jread = open(constant.USB_DIR+str(meta), 'w')
-    if dataReader == "files":
-        for x in metadata[dataReader]:
-            if x['File Name'] == rawData['File Name']:
-                print(rawData['Sync'])
-                metadata[dataReader].remove(x)
-                print("Remove from list")
-    elif dataReader == "tokens":
-        for x in metadata[dataReader]:
-            if x == rawData:
-                metadata[dataReader].remove(rawData)        
-    metadata[dataReader].append(rawData)
-    json.dump(metadata, jread)
-    jread.close()
-      
+          
 def prompt(chord):
     os.system('cls')
     print('{:#^50}'.format(""))           
@@ -123,8 +91,8 @@ def prompt(chord):
         elif choiceSplit[0].lower() == "join":
             if len(choiceSplit) == 3:
                 joinRing(chord, choiceSplit[1], str(choiceSplit[2]))
-        elif choiceSplit[0].lower() == "del":
-            chord.delete(getChoice[4:])
+        elif choiceSplit[0].lower() == "rem":
+            delete(chord, getChoice[4:])
         elif choiceSplit[0].lower() == "down":
             download(chord, getChoice[5:])
         elif choiceSplit[0].lower() == "shutdown":
@@ -137,8 +105,9 @@ def delete(chord, fileName):
         tempMetaData = readMetaData()
         for x in tempMetaData['files']:
             if x['File Name'] == fileName:
+                print(x['File Name']) 
                 for y in x['Pages']:
-                    locateChord = chord.locateSuccessor(y['Guid'])
+                    locateChord = chord.locateSuccessor(int(y['Guid']))
                     locateChord.removePage(y['Guid'])
                 tempMetaData['files'].remove(x)
                 writeMetaData(tempMetaData)
@@ -155,7 +124,11 @@ def sync(chord):
                     combo = str(z['Guid']) + ":" + str(x)
                     getChord = chord.locateSuccessor(int(z['Guid']))
                     m.update(combo.encode('UTF-8'))
-                    z['RSAInfo'] = getChord.sync(str(int(m.hexdigest(), 16)))
+                    print(str(int(m.hexdigest(), 16)))
+                    packageRetrieved = getChord.sync(str(int(m.hexdigest(), 16)))
+                    print(packageRetrieved)
+                    for packObject in packageRetrieved:
+                        z['RSAInfo'].append(packObject)
                 y['Sync'] = "Yes"
         tempMetaData['tokens'].remove(x)
         writeMetaData(tempMetaData)
@@ -184,38 +157,23 @@ def upload(chord, fileName):
         m.update(IPGet.encode('utf-8'))
         newPage["Page"] = fileInfo['Total Pages']
         fileInfo['Total Pages'] += 1
-        print("Before read")
         if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
-            print("during read 1.1")
             dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
-            print("during read 1.2")
             newPage['Size'] = fileInfo['Page Size']
-            print("during read 1.3")
             fileInfo['File Size'] += fileInfo['Page Size']
-            print("during read 1.4")
         else:
-            print("during read 2.1")
             dataSegment = data[fileInfo['File Size']:len(data)]
-            print("during read 2.2")
             newPage['Size'] = len(data) - fileInfo['File Size']
-            print("during read 2.3")
             fileInfo['File Size'] += newPage['Size']
-            print("during read 2.4")
-        print("AfterRead")
         RSACipher, cipherText, IV, tag = Encryptor.initialize(b64encode(dataSegment).decode('UTF-8'))
         privKey = open(constant.CHORD_PRIV_PEM, 'rb')
         fileGuid = chord.upload(fileName, cipherText, fileInfo['Total Pages'], tokenReceipt, privKey.read())
-        print("Upload Complete")
         newPage["Guid"] = fileGuid
         newPage["RSAInfo"] = []
-        newPage["RSAInfo"].append({"Set": 0, "RSACipher": RSACipher, "Tag": tag, "IV": IV})
+        newPage["RSAInfo"].append({"Tag": tag, "RSACipher": RSACipher, "IV": IV, "Set": 0})
         fileInfo['Pages'].append(newPage)
-        print("Partial upload complete")
-    print("Finish upload 1")
     tempMetaData['tokens'].append(int(tokenDigest.hexdigest(), 16))
-    print("Finish upload 2")
     tempMetaData['files'].append(fileInfo)
-    print("Finish upload 3")
     writeMetaData(tempMetaData)
 
 def download(chord, fileName):    
@@ -238,39 +196,12 @@ def download(chord, fileName):
                 print(y['RSAInfo'])
                 f.write(chord.download(x['File Name'], y['Guid'], y['Page'], y['RSAInfo']))
                 f.close()
-                           
-def downloadOld(chord, fileName):    
-    metaData = readMetaData("files")
-    for x in metaData:
-        if x['File Name'] == fileName:
-            pages = x['Total Pages']
-            progress = 0
-            count = 0
-            if not os.path.exists("./Download"):
-                os.makedirs("./Download")
-            fileNameCrop, fileExtCrop = os.path.splitext(fileName)
-            fileCount = 0
-            file = "./Download/"+fileName
-            while os.path.isfile(file):
-                file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
-                fileCount += 1
-            f = open(file, 'wb+')
-            f.close()
-            print("Preparing file for download, please wait")
-            while progress < 100:
-                progress = chord.download(fileName, count, file)
-                os.system('cls')
-                if progress == None:
-                    print("Download completed")
-                    break
-                count += 1
-                print("Download, please wait: %s " %progress)
 
 def showDirectory(chord):
     try:
         metadata = readMetaData()
         for x in metadata['files']:
-            print("%s  |  %s  |  %s" %(x['File Name'], x['File Size'], x['Total Pages']))
+            print("%s  |  %s  |  %s | Synced: %s" %(x['File Name'], x['File Size'], x['Total Pages'], x['Sync']))
     except FileNotFoundError as e:
         print("USB not recognized, now aborting")
 

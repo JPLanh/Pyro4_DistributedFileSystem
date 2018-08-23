@@ -402,7 +402,8 @@ class Chord(object):
         print(str(getGuid) + " has been created")
 
     def removePage(self, guidGet):
-        os.remove(str(self._guid) + "\\repository\\" + str(getGuid))
+        filePath = str(self._guid) + "/repository/" + str(guidGet)
+        os.remove(filePath)
             
     def ls(self):
         metadata = self.readMetaData()
@@ -431,8 +432,10 @@ class Chord(object):
 
     def sync(self, token):
         metaData = self.readMetaData()
+        print(str(token))
         for x in metaData:
             for tokenGrab, RSAInfo in x.items():
+                print(str(tokenGrab))
                 if tokenGrab == token:
                     metaData.remove(x)
                     self.writeMetaData(metaData)
@@ -452,62 +455,29 @@ class encryptingProcess(threading.Thread):
 
     def run(self):    
         try:
+#            Logger.log("Encrypting focus : page = " + str(self.page) + " count = " + str(self.count) + " guid = " + str(int(m.hexdigest(), 16)))
             m = hashlib.md5()
             m.update((self.fileName + ":" + str(self.page) + ":" + str(self.count)).encode('utf-8'))
-            Logger.log("Encrypting focus : page = " + str(self.page) + " count = " + str(self.count) + " guid = " + str(int(m.hexdigest(), 16)))
             getChord = self.chord.locateSuccessor(int(m.hexdigest(), 16), True)
             if getChord.guid == self.chord.guid:
-                Logger.printLog("Encrypt page = " + str(self.page) + " count = " + str(self.count) + " guid = " + str(int(m.hexdigest(), 16)))
-                if self.count == constant.MAX_CHAIN_ENCRYPTION:
-                    Logger.log("page = " + str(self.page) + " count = MAX")
+#                Logger.printLog("Encrypt page = " + str(self.page) + " count = " + str(self.count) + " guid = " + str(int(m.hexdigest(), 16)))
+                if self.count == 1:
+#                   Logger.log("page = " + str(self.page) + " count = initial")
+                    RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
+                else:
+#                    Logger.log("page = " + str(self.page) + " count =" + str(count))
+                    for y in self.chord.keychain:
+                        if y["Chord"] == self.prevKey:
+                            for x in self.chainEncryption:
+                                if x["Set"] == self.count-1:
+                                    RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(self.data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
+                self.chainEncryption.append({'Set': self.count, 'RSACipher': RSACipher, 'IV': IV, 'Tag': tag})
+                if self.count == constant.MAX_CHAIN_ENCRYPTION:                        
                     tokenHash = hashlib.md5()
                     combo = str(int(m.hexdigest(), 16)) + ":" + str(self.token)
                     tokenHash.update(combo.encode('utf-8'))
-                    getChord.createPage(self.data, int(int(m.hexdigest(), 16)), int(tokenHash.hexdigest(), 16), self.chainEncryption)
-##                elif self.count == 0:
-##                    Logger.log("page = " + str(self.page) + " count = 0")
-##                    newSet = {}
-##                    RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
-##                    newSet["Set"] = self.count
-##                    newSet["RSACipher"] = b64encode(RSACipher).decode('utf-8')
-##                    newSet["IV"] = b64encode(IV).decode('utf-8')
-##                    newSet["Tag"] = b64encode(tag).decode('utf-8')
-##                    self.chainEncryption.append(newSet)
-##
-##                    f=open(constant.PRIVATE_PEM, 'rb')
-##                    private_key = serialization.load_pem_private_key(
-##                        f.read(),
-##                        password=None,
-##                        backend=default_backend()
-##                    )
-##                    privPem = private_key.private_bytes(
-##                        encoding=serialization.Encoding.PEM,
-##                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-##                        encryption_algorithm=serialization.NoEncryption()
-##                    )
-##                    getChord.chainEncrypt(self.fileName, b64encode(cipherText).decode('utf-8'), self.count + 1, self.chainEncryption, self.page, self.token, b64encode(privPem).decode('utf-8'))
+                    getChord.createPage(cipherText, int(int(m.hexdigest(), 16)), int(tokenHash.hexdigest(), 16), self.chainEncryption)
                 else:
-                    Logger.log("page = " + str(self.page) + " count = " + str(self.count))
-                    newSet = {}
-                    getKey = None
-                    if self.count == 1:
-                        RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
-                    else:
-                        for y in self.chord.keychain:
-                            print("Test 1")
-                            if y["Chord"] == self.prevKey:
-                                print("Test 2")
-                                for x in self.chainEncryption:
-                                    print("Test 3")
-                                    if x["Set"] == self.count-1:
-                                        print("Test 4")
-                                        RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(self.data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
-##                    newSet = {'Set': self.count, 'RSACipher': RSACipher, 'IV': IV, 'Tag': tag}
-##                    newSet["Set"] = self.count
-##                    newSet["RSACipher"] = RSACipher
-##                    newSet["IV"] = IV
-##                    newSet["Tag"] = tag                
-                    self.chainEncryption.append({'Set': self.count, 'RSACipher': RSACipher, 'IV': IV, 'Tag': tag})
                     getChord.chainEncrypt(self.fileName, cipherText, self.count + 1, self.chainEncryption, self.page, self.token, self.chord._guid)
             else:
                 getChord.chainEncrypt(self.fileName, self.data, self.count, self.chainEncryption, self.page, self.token, self.prevKey)
