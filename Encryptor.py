@@ -95,4 +95,5 @@ def initialize(message):
                 )
             )
 
-        return RSACipher, cipherText, IV, tag
+
+    return b64encode(RSACipher).decode('UTF-8'), b64encode(cipherText).decode('UTF-8'), b64encode(IV).decode('UTF-8'), b64encode(tag).decode('UTF-8')   

@@ -8,6 +8,7 @@ import time
 import json
 import datetime
 import constant
+import Encryptor
 from Chord import Chord
 from base64 import b64encode, b64decode
 
@@ -201,21 +202,20 @@ def upload(chord, fileName):
             fileInfo['File Size'] += newPage['Size']
             print("during read 2.4")
         print("AfterRead")
-        RSACipher, cipherText, IV, tag = Encryptor.initialize(dataSegment)
-        fileGuid = chord.upload(fileName, b64encode(cipherText).decode('UTF-8'), fileInfo['Total Pages'], tokenReceipt)
+        RSACipher, cipherText, IV, tag = Encryptor.initialize(b64encode(dataSegment).decode('UTF-8'))
+        privKey = open(constant.CHORD_PRIV_PEM, 'rb')
+        fileGuid = chord.upload(fileName, cipherText, fileInfo['Total Pages'], tokenReceipt, privKey.read())
         print("Upload Complete")
         newPage["Guid"] = fileGuid
         newPage["RSAInfo"] = []
-        newRSA = {}
-        newRSA["Set"] = 0
-        newRSA["RSACipher"] = RSACipher
-        newRSA["Tag"] = tag
-        newRSA["IV"] = IV
-        newPage["RSAInfo"].append(newRSA)
+        newPage["RSAInfo"].append({"Set": 0, "RSACipher": RSACipher, "Tag": tag, "IV": IV})
         fileInfo['Pages'].append(newPage)
         print("Partial upload complete")
+    print("Finish upload 1")
     tempMetaData['tokens'].append(int(tokenDigest.hexdigest(), 16))
+    print("Finish upload 2")
     tempMetaData['files'].append(fileInfo)
+    print("Finish upload 3")
     writeMetaData(tempMetaData)
 
 def download(chord, fileName):    

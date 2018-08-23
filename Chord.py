@@ -383,9 +383,9 @@ class Chord(object):
         fileReader = open(str(self._guid) + "/repository/" + str(guidGet), 'rb')
         return fileReader.read()
 
-    def upload(self, fileName, message, totalPage, token):
+    def upload(self, fileName, message, totalPage, token, chordPriv):
         chainEncryption = []
-        self.chainEncrypt(fileName, message, 1, chainEncryption, totalPage, token)
+        self.chainEncrypt(fileName, message, 1, chainEncryption, totalPage, token, chordPriv)
         m = hashlib.md5()
         m.update((fileName + ":" + str(totalPage) + ":3").encode('utf-8'))
         return(str(int(m.hexdigest(), 16)))
@@ -491,20 +491,23 @@ class encryptingProcess(threading.Thread):
                     newSet = {}
                     getKey = None
                     if self.count == 1:
-                        for x in self.chainEncryption:
-                            if x["Set"] == self.count-1:
-                                RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(self.data), b64decode(x["IV"]), b64decode(x["Tag"]), b64decode(self.prevKey))
+                        RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
                     else:
                         for y in self.chord.keychain:
+                            print("Test 1")
                             if y["Chord"] == self.prevKey:
+                                print("Test 2")
                                 for x in self.chainEncryption:
+                                    print("Test 3")
                                     if x["Set"] == self.count-1:
+                                        print("Test 4")
                                         RSACipher, cipherText, IV, tag = Encryptor.chainInitialize(b64decode(x["RSACipher"]), b64decode(self.data), b64decode(x["IV"]), b64decode(x["Tag"]), y["Key"])
-                    newSet["Set"] = self.count
-                    newSet["RSACipher"] = RSACipher
-                    newSet["IV"] = IV
-                    newSet["Tag"] = tag                
-                    self.chainEncryption.append(newSet)
+##                    newSet = {'Set': self.count, 'RSACipher': RSACipher, 'IV': IV, 'Tag': tag}
+##                    newSet["Set"] = self.count
+##                    newSet["RSACipher"] = RSACipher
+##                    newSet["IV"] = IV
+##                    newSet["Tag"] = tag                
+                    self.chainEncryption.append({'Set': self.count, 'RSACipher': RSACipher, 'IV': IV, 'Tag': tag})
                     getChord.chainEncrypt(self.fileName, cipherText, self.count + 1, self.chainEncryption, self.page, self.token, self.chord._guid)
             else:
                 getChord.chainEncrypt(self.fileName, self.data, self.count, self.chainEncryption, self.page, self.token, self.prevKey)
