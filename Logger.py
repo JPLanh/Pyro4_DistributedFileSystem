@@ -6,7 +6,7 @@ def log(data):
         f = open("Logger.txt", 'a+')
     except:
         f = open("Logger.txt", 'w+')
-    f.write("[" + str(datetime.now()) + "] " + data + "\n")
+    f.write("[" + str(datetime.now()) + "] " + data + "\n\n")
     f.close()
 
     

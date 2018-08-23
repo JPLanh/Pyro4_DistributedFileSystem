@@ -29,17 +29,25 @@ def chainDecryption(message, IVget, encKey, hMacKey, tag):
         Logger.log("Failed")
         return None
     
-def chainInitialize(RSACipher, cipherText, IV, tag, chained):
+def chainInitialize(RSACipher, cipherText, IV, tag, chained = False):
+    print("Decryptor chain initialize flag 1")
     if chained:
-        f=open(constant.CHORD_PRIV_PEM, 'rb')
+        print(chained)
+        private_key = serialization.load_pem_private_key(
+            chained,
+            password=None,
+            backend=default_backend()
+        )
     else:
-        f=open(constant.PRIVATE_PEM, 'rb')        
-    private_key = serialization.load_pem_private_key(
-        f.read(),
-        password=None,
-        backend=default_backend()
-    )
+        print("is not chain")
+        f=open(constant.CHORD_PRIV_PEM, 'rb')        
+        private_key = serialization.load_pem_private_key(
+            f.read(),
+            password=None,
+            backend=default_backend()
+        )
 
+    print("Decryptor chain initialize flag 2")
     key = private_key.decrypt(
         RSACipher,
         asymmetric.padding.OAEP(
@@ -49,13 +57,16 @@ def chainInitialize(RSACipher, cipherText, IV, tag, chained):
         )
     )
 
+    print("Decryptor chain initialize flag 3")
     encKey = key[:32]
     hMacKey = key[32:]
     plainText = chainDecryption(cipherText, IV, encKey, hMacKey, tag)
+    print("Decryptor chain initialize flag 4")
     if plainText != None:
+        print("Decryptor chain initialize flag 5")
         return b64encode(plainText).decode('UTF-8')
     else:
-        Logger.log("None returned from decryption")
+        print("None returned from decryption")
 
 def initialize(RSACipher, cipherText, IV, tag, chained):
     if chained:

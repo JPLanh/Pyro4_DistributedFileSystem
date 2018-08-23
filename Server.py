@@ -65,6 +65,8 @@ if __name__ == "__main__":
     IPGet = str(constant.SERVER_IP) + ":" + str(constant.SERVER_PORT)
     m.update(IPGet.encode('UTF-8'))
     guid = int(m.hexdigest(), 16)
+    if guid == 24776812301399568525328926517237946396:
+        guid *= 10
     chord = Chord(str(constant.SERVER_IP), int(constant.SERVER_PORT), guid)
 
     nameServer = start_name_server()
@@ -83,13 +85,26 @@ if __name__ == "__main__":
                 m = hashlib.md5()
                 IPGet = str(x["IP"] + ":" + str(x["Port"]))
                 m.update(IPGet.encode('UTF-8'))
-                guid = int(m.hexdigest(), 16)
-                chord.joinRing(x["IP"], x["Port"], guid)
+                newGuid = int(m.hexdigest(), 16)
+                chord.joinRing(x["IP"], x["Port"], newGuid)
                 print("Joined")
                 break
         except:
             print("Unable to join")
 
+    if os.path.isfile("Logger.txt"):
+        os.remove("Logger.txt")
+    f = open("Logger.txt", 'w+')
+    f.close()
+    
+    metaDataGuid = hashlib.md5()
+    metaDataGuid.update("metaData".encode('utf-8'))
+    if not os.path.isfile(str(guid) + "/repository/" + str(int(metaDataGuid.hexdigest(), 16))):
+        metaDataTemp = []
+        metaReader = open(str(guid) + "/repository/" + str(int(metaDataGuid.hexdigest(), 16)), 'w+')
+        json.dump(metaDataTemp, metaReader)
+        metaReader.close()
+    
     print("Finish Joining")
-    while True:
-        pass
+#    while True:
+#        pass

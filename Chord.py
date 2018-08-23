@@ -102,7 +102,15 @@ class Chord(object):
         f.close()
         return jsonRead
 
-    def writeMetaData(self, token, rawData):
+    def writeMetaData(self, meta):
+        metaDataGuid = hashlib.md5()
+        metaDataGuid.update("metaData".encode('utf-8'))
+        metaReader = open(str(self._guid) + "/repository/" + str(int(metaDataGuid.hexdigest(), 16)), 'w')
+        json.dump(meta, metaReader)
+        metaReader.close()
+
+        
+    def writeMetaDataOld(self, token, rawData):
         metaDataGuid = hashlib.md5()
         metaDataGuid.update("metaData".encode('utf-8'))
         if not os.path.isfile(str(self._guid) + "/repository/" + str(int(metaDataGuid.hexdigest(), 16))):
@@ -280,18 +288,23 @@ class Chord(object):
             print(x)
 
     def locateSuccessor(self, guid, debug = False):
+        if debug:
+            Logger.log("Locating Chord: " + str(self.guid) + " guid: " + str(guid))
         try:
             if guid == self._guid:
                 print ("Error it's the same shit")
             else:
                 if self._successor.guid != guid:
-##                    if debug:
-##                        print("Current Chord: " + str(self.guid) + " guid: " + str(guid) + " successor Chord: " + str(self._successor.guid))
+                    if debug:
+                        Logger.log("Current Chord: " + str(self.guid) + " guid: " + str(guid) + " successor Chord: " + str(self._successor.guid))
                     if self.inInterval("Close", guid, self._guid, self._successor.guid):
+                        if debug:
+                            Logger.log("Success Chord: " + str(self.guid) + " guid: " + str(guid))
                         return self
                     else:
                         nextSuccessor = self.closestPrecedingChord(guid)
-##                        print("Next Successor: " + str(nextSuccessor.guid) + " guid: " + str(guid))
+                        if debug:
+                            Logger.log("Next Successor: " + str(nextSuccessor.guid) + " guid: " + str(guid))
                         return nextSuccessor.locateSuccessor(guid, True)
                 else:
                     print("Error, same guid")
@@ -325,52 +338,50 @@ class Chord(object):
         encryptThread.join()
         self.encryptionIndex.append(encryptThread)
 
-##    def chainDecryption(self, fileName, data, count, RSAInfo, page = False):
-##        for x in RSAInfo:            
-##            m.update((fileName + ":" + str(pageGet) + ":" + str(x['Set'])).encode('utf-8'))
-##            getChord = self.locateSuccessor(int(m.hexdigest(), 16))
-##            if x['Set'] == 2:
-##        for x in RSAInfo:
-##            if x["Set"] == count:
-##                RSACipher = x["RSACipher"]
-##                IV = x["IV"]
-##                tag = x["Tag"]
-##        if count == 0:
-##            return Decryptor.initialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), False)
-##        else:
-##            if count == constant.MAX_CHAIN_ENCRYPTION-1:
-##                cipherText = Decryptor.initialize(b64decode(RSACipher), data, b64decode(IV), b64decode(tag), True)
-##            else:
-##                cipherText = Decryptor.initialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), True)
-##            return self.chainDecryption(fileName, cipherText, count - 1, RSAInfo, page)
-
     def chainDecrypt(self, fileName, data, pageGet, count, RSAInfo, page = False):
-        for x in b64decode(RSAInfo):
+        Logger.printLog("Decryption Flag 1")
+        for x in RSAInfo:
+            Logger.printLog(str(x['Set']) + " : " + str(count))
             if x['Set'] == count:
+                Logger.printLog("Info Gahtered")
                 RSACipher = x["RSACipher"]
                 IV = x["IV"]
                 tag = x["Tag"]
+                m = hashlib.md5()
+                m.update((fileName + ":" + str(pageGet) + ":" + str(count)).encode('utf-8'))
+                grabChord = self.locateSuccessor(int(m.hexdigest(), 16))
+                for x in self.keychain:
+                    if x['Chord'] == grabChord.guid:
+                        print("Key grab at chord: " + str(x['Chord']))
+                        key = x['Key']
         if count == constant.MAX_CHAIN_ENCRYPTION-1:
-            newData = Decryptor.chainInitialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), False)
+            Logger.printLog("Begin Decryption count == 2")
+            newData = Decryptor.chainInitialize(b64decode(RSACipher), data, b64decode(IV), b64decode(tag), key)
             m.update((fileName + ":" + str(pageGet) + ":" + (count-1)).encode('utf-8'))
             getChord = self.locateSuccessor(int(m.hexdigest(), 16))
             return getChord.chainDecrypt(fileName, b64encode(newData).decode('UTF-8'), pageGet, count-1, b64encode(RSAInfo).decode('UTF-8'), False)
         else:
             if count == 0:
+                print("Count == 0")
                 return Decryptor.chainInitialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), True)
             else:
+                print("Count == " + str(count))
                 newData = Decryptor.chainInitialize(b64decode(RSACipher), b64decode(data), b64decode(IV), b64decode(tag), True)
                 m.update((fileName + ":" + str(pageGet) + ":" + (count-1)).encode('utf-8'))
                 getChord = self.locateSuccessor(int(m.hexdigest(), 16))
                 return getChord.chainDecrypt(fileName, newData, pageGet, count - 1, RSAInfo, page)
         
     def download(self, fileName, guidGet, pageGet, RSAInfo):
-        getChord = self.locateSuccessor(guidGet)
+        Logger.printLog("File Guid: " + str(guidGet))
+        getChord = self.locateSuccessor(int(guidGet))
+        Logger.printLog("Chord Guid: " + str(getChord.guid))
         data = getChord.readData(guidGet)
+        Logger.printLog("Read complete")
         return self.chainDecrypt(fileName, data, pageGet, 2, RSAInfo, True)
 
     def readData(self, guidGet):
-        return b64encode(open(guidGet, 'rb')).decode('UTF-8')
+        fileReader = open(str(self._guid) + "/repository/" + str(guidGet), 'rb')
+        return fileReader.read()
 
     def upload(self, fileName, message, totalPage, token):
         chainEncryption = []
@@ -380,10 +391,14 @@ class Chord(object):
         return(str(int(m.hexdigest(), 16)))
 
     def createPage(self, getMessage, getGuid, getToken, getRSAInfo):
+        tempMetaData = self.readMetaData()
         f = open(str(self._guid) + "/repository/" + str(getGuid), 'wb+')
         f.write(b64decode(getMessage))
         f.close()
-        self.writeMetaData(getToken, getRSAInfo)
+        newData = {}
+        newData[getToken] = getRSAInfo
+        tempMetaData.append(newData)
+        self.writeMetaData(tempMetaData)
         print(str(getGuid) + " has been created")
 
     def removePage(self, guidGet):
@@ -420,6 +435,7 @@ class Chord(object):
             for tokenGrab, RSAInfo in x.items():
                 if tokenGrab == token:
                     metaData.remove(x)
+                    self.writeMetaData(metaData)
                     return RSAInfo
 
 class encryptingProcess(threading.Thread):
@@ -438,17 +454,18 @@ class encryptingProcess(threading.Thread):
         try:
             m = hashlib.md5()
             m.update((self.fileName + ":" + str(self.page) + ":" + str(self.count)).encode('utf-8'))
-#            Logger.printLog("Encrypting focus : page = " + str(self.page) + " count = " + str(self.count) + " guid = " + str(int(m.hexdigest(), 16)))
+            Logger.log("Encrypting focus : page = " + str(self.page) + " count = " + str(self.count) + " guid = " + str(int(m.hexdigest(), 16)))
             getChord = self.chord.locateSuccessor(int(m.hexdigest(), 16), True)
             if getChord.guid == self.chord.guid:
+                Logger.printLog("Encrypt page = " + str(self.page) + " count = " + str(self.count) + " guid = " + str(int(m.hexdigest(), 16)))
                 if self.count == constant.MAX_CHAIN_ENCRYPTION:
-#                    Logger.printLog("page = " + str(self.page) + " count = MAX")
+                    Logger.log("page = " + str(self.page) + " count = MAX")
                     tokenHash = hashlib.md5()
                     combo = str(int(m.hexdigest(), 16)) + ":" + str(self.token)
                     tokenHash.update(combo.encode('utf-8'))
                     getChord.createPage(self.data, int(int(m.hexdigest(), 16)), int(tokenHash.hexdigest(), 16), self.chainEncryption)
                 elif self.count == 0:
-#                    Logger.printLog("page = " + str(self.page) + " count = 0")
+                    Logger.log("page = " + str(self.page) + " count = 0")
                     newSet = {}
                     RSACipher, cipherText, IV, tag = Encryptor.initialize(self.data)
                     newSet["Set"] = self.count
@@ -470,7 +487,7 @@ class encryptingProcess(threading.Thread):
                     )
                     getChord.chainEncrypt(self.fileName, b64encode(cipherText).decode('utf-8'), self.count + 1, self.chainEncryption, self.page, self.token, b64encode(privPem).decode('utf-8'))
                 else:
-#                    Logger.printLog("page = " + str(self.page) + " count = " + str(self.count))
+                    Logger.log("page = " + str(self.page) + " count = " + str(self.count))
                     newSet = {}
                     getKey = None
                     if self.count == 1:

@@ -152,8 +152,9 @@ def sync(chord):
                 for z in y['Pages']:
                     m = hashlib.md5()
                     combo = str(z['Guid']) + ":" + str(x)
+                    getChord = chord.locateSuccessor(int(z['Guid']))
                     m.update(combo.encode('UTF-8'))
-                    z['RSAInfo'] = chord.sync(str(int(m.hexdigest(), 16)))
+                    z['RSAInfo'] = getChord.sync(str(int(m.hexdigest(), 16)))
                 y['Sync'] = "Yes"
         tempMetaData['tokens'].remove(x)
         writeMetaData(tempMetaData)
@@ -182,15 +183,26 @@ def upload(chord, fileName):
         m.update(IPGet.encode('utf-8'))
         newPage["Page"] = fileInfo['Total Pages']
         fileInfo['Total Pages'] += 1
+        print("Before read")
         if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
+            print("during read 1.1")
             dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
+            print("during read 1.2")
             newPage['Size'] = fileInfo['Page Size']
+            print("during read 1.3")
             fileInfo['File Size'] += fileInfo['Page Size']
+            print("during read 1.4")
         else:
+            print("during read 2.1")
             dataSegment = data[fileInfo['File Size']:len(data)]
+            print("during read 2.2")
             newPage['Size'] = len(data) - fileInfo['File Size']
+            print("during read 2.3")
             fileInfo['File Size'] += newPage['Size']
+            print("during read 2.4")
+        print("AfterRead")
         fileGuid = chord.upload(fileName, b64encode(dataSegment).decode('UTF-8'), fileInfo['Total Pages'], tokenReceipt)
+        print("Upload Complete")
         newPage["Guid"] = fileGuid
         fileInfo['Pages'].append(newPage)
         print("Partial upload complete")
@@ -204,15 +216,19 @@ def download(chord, fileName):
         if x['File Name'] == fileName:
             if not os.path.exists("./Download"):
                 os.makedirs("./Download")
-                fileNameCrop, fileExtCrop = os.path.splitext(fileName)
-            while os.path.isfile(file):
-                file = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
+            fileNameCrop, fileExtCrop = os.path.splitext(fileName)
+            absoluteFile = "./Download/" + fileName
+            fileCount = 0
+            while os.path.isfile(absoluteFile):
+                print("file Exist: " + absoluteFile)
+                absoluteFile = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
                 fileCount += 1
-            f = open(file, 'wb+')
-            f.close()
+            print(absoluteFile)
+            f = open(absoluteFile, 'wb+')
             for y in x['Pages']:
-                f.open(file, 'wb')
-                f.write(chord.download(x['File Name'], y['Guid'], y['Page'], b64encode(reversed(y['RSAInfo'])).decode('UTF-8')))
+                print("Downloading Page: " + str(y['Page']) + " with guid: " + str(y['Guid']))
+                print(y['RSAInfo'])
+                f.write(chord.download(x['File Name'], y['Guid'], y['Page'], y['RSAInfo']))
                 f.close()
                            
 def downloadOld(chord, fileName):    
