@@ -9,6 +9,7 @@ import json
 import datetime
 import constant
 import Encryptor
+import Decryptor
 from Chord import Chord
 from base64 import b64encode, b64decode
 
@@ -105,7 +106,7 @@ def delete(chord, fileName):
         tempMetaData = readMetaData()
         for x in tempMetaData['files']:
             if x['File Name'] == fileName:
-                print(x['File Name']) 
+                print("Removing " + x['File Name'] + " please wait.") 
                 for y in x['Pages']:
                     locateChord = chord.locateSuccessor(int(y['Guid']))
                     locateChord.removePage(y['Guid'])
@@ -115,6 +116,7 @@ def delete(chord, fileName):
         print(str(e))
 
 def sync(chord):
+    print("Synchronizing, please wait")
     tempMetaData = readMetaData()
     for x in tempMetaData['tokens']:
         for y in tempMetaData['files']:
@@ -124,14 +126,13 @@ def sync(chord):
                     combo = str(z['Guid']) + ":" + str(x)
                     getChord = chord.locateSuccessor(int(z['Guid']))
                     m.update(combo.encode('UTF-8'))
-                    print(str(int(m.hexdigest(), 16)))
                     packageRetrieved = getChord.sync(str(int(m.hexdigest(), 16)))
-                    print(packageRetrieved)
                     for packObject in packageRetrieved:
                         z['RSAInfo'].append(packObject)
                 y['Sync'] = "Yes"
         tempMetaData['tokens'].remove(x)
         writeMetaData(tempMetaData)
+    print("Synchronize complete")
 
 def upload(chord, fileName):
     os.path.isfile(fileName)
@@ -156,7 +157,6 @@ def upload(chord, fileName):
         IPGet = fileName + ":" + str(fileInfo['Total Pages'])
         m.update(IPGet.encode('utf-8'))
         newPage["Page"] = fileInfo['Total Pages']
-        fileInfo['Total Pages'] += 1
         if (len(data) - fileInfo['File Size']) > fileInfo['Page Size']:
             dataSegment = data[fileInfo['File Size']:(fileInfo['File Size']+fileInfo['Page Size'])]        
             newPage['Size'] = fileInfo['Page Size']
@@ -172,6 +172,7 @@ def upload(chord, fileName):
         newPage["RSAInfo"] = []
         newPage["RSAInfo"].append({"Tag": tag, "RSACipher": RSACipher, "IV": IV, "Set": 0})
         fileInfo['Pages'].append(newPage)
+        fileInfo['Total Pages'] += 1
     tempMetaData['tokens'].append(int(tokenDigest.hexdigest(), 16))
     tempMetaData['files'].append(fileInfo)
     writeMetaData(tempMetaData)
@@ -189,13 +190,13 @@ def download(chord, fileName):
                 print("file Exist: " + absoluteFile)
                 absoluteFile = "./Download/"+fileNameCrop+" (" + str(fileCount) + ")"+fileExtCrop
                 fileCount += 1
-            print(absoluteFile)
             f = open(absoluteFile, 'wb+')
-            for y in x['Pages']:
-                print("Downloading Page: " + str(y['Page']) + " with guid: " + str(y['Guid']))
-                print(y['RSAInfo'])
-                f.write(chord.download(x['File Name'], y['Guid'], y['Page'], y['RSAInfo']))
-                f.close()
+            for y in x['Pages']:                
+                getLastPT = chord.download(x['File Name'], y['Guid'], y['Page'], y['RSAInfo'])
+                for z in y['RSAInfo']:
+                    if z['Set'] == 0:
+                        f.write(b64decode(Decryptor.initialize(b64decode(z['RSACipher']), b64decode(getLastPT), b64decode(z['IV']), b64decode(z['Tag']), None)))
+            f.close()
 
 def showDirectory(chord):
     try:

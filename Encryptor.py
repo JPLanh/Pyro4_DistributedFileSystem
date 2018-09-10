@@ -75,12 +75,15 @@ def chainInitialize(RSACipher, cipherText, IV, tag, prevKey):
         )
     return b64encode(RSACipher).decode('UTF-8'), b64encode(newCipher).decode('UTF-8'), b64encode(newIV).decode('UTF-8'), b64encode(newTag).decode('UTF-8')   
 
-def initialize(message):
+def initialize(message, client = None):
     encKey = os.urandom(constant.KEY_BYTE_SIZE)
     hMacKey = os.urandom(constant.KEY_BYTE_SIZE)
     cipherText, IV, tag = dataEncrypt(b64decode(message), encKey, hMacKey)
     if cipherText != None:
-        f=open(constant.CHORD_PUB_PEM, 'rb')
+        if client:
+            f=open(constant.PUBLIC_PEM, 'rb')
+        else:
+            f=open(constant.CHORD_PUB_PEM, 'rb')
         public_key = serialization.load_pem_public_key(
             f.read(),
             backend=default_backend()
