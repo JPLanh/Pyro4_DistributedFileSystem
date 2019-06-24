@@ -1,18 +1,32 @@
 # Aegis System of Distributing Files (ASDF)
 
-A Distributed File System that partition and encrpyt a given file and store it on a peer-2-peer system.
+A Distributed File System that partition and encrpyt a given file and store it on a peer-2-peer (chord) system.
 
 ## Getting Started
 
-Atleast two Amazon AWS EC2 instance should be running, but for the time being the two server being:
-1. ec2-18-218-220-102.us-east-2.compute.amazonaws.com
-2. ec2-18-191-99-22.us-east-2.compute.amazonaws.com
+Name Server: The yellow book of your servers, your server will try to communicate to this server and enlist them in the system.
+Server: The peer-2-peer servers that you will be connected to and most of the operation happening.
+Client: You, or the controller.
 
 ### Prerequisites
 
-N/A
+API: Pyro4, Cryptography
+Resource: 2+ cloud services (a server, and a name server)
 
 ### Installation
+
+Python 3.x
+ 1. sudo apt-get update
+ 2. sudo apt-get install python3-pip
+ 3. sudo pip3 install pyro4
+ 4. sudo pip3 install cryptography
+ 
+###### Name Server Side
+
+A name server will need to have `nameServer.py` running.
+
+A name server requires the following file:
+- nameServer.py
 
 ###### Server Side
 
