@@ -8,11 +8,13 @@ import time
 import json
 import datetime
 import constant
+import threading
 import Encryptor
 import Decryptor
 from Chord import Chord
 from base64 import b64encode, b64decode
 
+#Register the user creating a private key and metadata
 def register(chord):
     privKey, pubKey = chord.createKeys()
 
@@ -54,7 +56,8 @@ def writeMetaData(data):
     jread = open(constant.USB_DIR+str(meta), 'w')
     json.dump(data, jread)
     jread.close()
-          
+
+#Prompt the user of the main menu         
 def prompt(chord):
     os.system('cls')
     print('{:#^50}'.format(""))           
@@ -100,7 +103,7 @@ def prompt(chord):
             chord.shutDown(chord)
     input("Press enter to continue")
     
-
+#Remove the file, and the following pages that corresponds to the file
 def delete(chord, fileName):
     try:
         tempMetaData = readMetaData()
@@ -115,6 +118,8 @@ def delete(chord, fileName):
     except Exception as e:
         print(str(e))
 
+#Synchronize the user's receipt with the server, technically retrieving the
+#corresponding metadata components.
 def sync(chord):
     print("Synchronizing, please wait")
     tempMetaData = readMetaData()
@@ -134,6 +139,8 @@ def sync(chord):
         writeMetaData(tempMetaData)
     print("Synchronize complete")
 
+#Partition the file's data into a smaller segment and append them to the respective
+#pages. It first encrypt the file and then send it over.
 def upload(chord, fileName):
     os.path.isfile(fileName)
     tempMetaData = readMetaData()
@@ -165,18 +172,13 @@ def upload(chord, fileName):
             dataSegment = data[fileInfo['File Size']:len(data)]
             newPage['Size'] = len(data) - fileInfo['File Size']
             fileInfo['File Size'] += newPage['Size']
-        RSACipher, cipherText, IV, tag = Encryptor.initialize(b64encode(dataSegment).decode('UTF-8'))
-        privKey = open(constant.CHORD_PRIV_PEM, 'rb')
-        fileGuid = chord.upload(fileName, cipherText, fileInfo['Total Pages'], tokenReceipt, privKey.read())
-        newPage["Guid"] = fileGuid
-        newPage["RSAInfo"] = []
-        newPage["RSAInfo"].append({"Tag": tag, "RSACipher": RSACipher, "IV": IV, "Set": 0})
-        fileInfo['Pages'].append(newPage)
-        fileInfo['Total Pages'] += 1
+        uploadPage = upload_file_thread(fileName, dataSegment, newPage, fileInfo, tokenReceipt)
+        uploadPage.start()
     tempMetaData['tokens'].append(int(tokenDigest.hexdigest(), 16))
-    tempMetaData['files'].append(fileInfo)
     writeMetaData(tempMetaData)
 
+#Grab the receipt of the file and get all the the following pages and data
+#from the server.
 def download(chord, fileName):    
     metaData = readMetaData()
     for x in metaData['files']:
@@ -198,6 +200,7 @@ def download(chord, fileName):
                         f.write(b64decode(Decryptor.initialize(b64decode(z['RSACipher']), b64decode(getLastPT), b64decode(z['IV']), b64decode(z['Tag']), None)))
             f.close()
 
+#Show the metadata of what the user have, and not the server.
 def showDirectory(chord):
     try:
         metadata = readMetaData()
@@ -206,6 +209,7 @@ def showDirectory(chord):
     except FileNotFoundError as e:
         print("USB not recognized, now aborting")
 
+#Allow the user to join the ring and attaching itself to one of the nodes.
 def joinRing(chord, getIP, getPort):
     if (getIP == chord.ip) and (getPort == chord.port):
         print("Unable to join the same chord")
@@ -221,21 +225,41 @@ def joinRing(chord, getIP, getPort):
         except Exception as e:
             print(str(e))
 
+class upload_file_thread(threading.Thread):
+    def __init__(self, fileName, data, page, fileInfo, tokenReceipt):
+        threading.Thread.__init__(self)
+        self.fileName = fileName
+        self.dataSegment = data
+        self.page = page
+        self.fileInfo = fileInfo
+        self.tokenReceipt = tokenReceipt
+
+    def run(self):
+        RSACipher, cipherText, IV, tag = Encryptor.initialize(b64encode(self.dataSegment).decode('UTF-8'))
+        privKey = open(constant.CHORD_PRIV_PEM, 'rb')
+        fileGuid = chord.upload(self.fileName, cipherText, self.page["Page"], self.page, privKey.read())
+        self.page["Guid"] = fileGuid
+        self.page["RSAInfo"] = []
+        self.page["RSAInfo"].append({"Tag": tag, "RSACipher": RSACipher, "IV": IV, "Set": 0})
+        fileInfo['Pages'].append(newPage)
+        fileInfo['Total Pages'] += 1
+        
+
 if __name__ == "__main__":
     serverFile = open("./ServerList", 'r')
     serverList = json.load(serverFile)
+    Pyro4.config.COMMTIMEOUT = 3
     while not ('chord' in locals()):
         os.system("cls")
         print("Connecting ")
         time.sleep(1)
         try:
-            for x in serverList["Servers"]:
-                with Pyro4.locateNS(host=x["IP"], port=(int(x["Port"])-1)) as ns:
-                    m = hashlib.md5()
-                    connectionConfig = str(x["IP"]) +":"+ str(x["Port"])
-                    m.update(connectionConfig.encode('UTF-8'))                    
-                    for guidGet, guidURI in ns.list(prefix=str(int(m.hexdigest(), 16))).items():
-                        chord = Pyro4.Proxy(guidURI)
+            with Pyro4.locateNS(host="35.212.249.77", port=constant.SERVER_PORT) as ns:
+                for guidGet, guidURI in ns.list().items():
+                     print(guidGet)
+                     chord = Pyro4.Proxy(guidURI)
+                     print(chord.ip)
+                     break
         except Exception as e:
             print(str(e))
             time.sleep(1)
